@@ -67,7 +67,7 @@ void LabelGenerationNode::initializePubSubs() {
                                  &LabelGenerationNode::lidarScanCallback,
                                  this);
   // [new] IMU subscriber for soft-label generation
-  sub_imu = nh_.subscribe("/vectornav/IMU", 1000, &
+  sub_imu_ = nh_.subscribe("/vectornav/IMU", 1000, &
       LabelGenerationNode::imuCallback, this);
   // ...
   pub_filtered_scan_ =
