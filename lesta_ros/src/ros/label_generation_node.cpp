@@ -543,8 +543,7 @@ float LabelGenerationNode::calculateSoftLabel() {
   float score = std::exp(-lambda_decay_ * variance_z);
   return std::max((float)min_soft_label_, score);
 }
-}
-} // namespace lesta_ros
+}// namespace lesta_ros
 
 int main(int argc, char **argv) {
 
