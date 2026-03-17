@@ -11,6 +11,13 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/Marker.h>
 #include "lesta/save_training_data.h"
+// =============================
+// [new] IMU soft-label head file
+#include <sensor_msgs/Imu.h>
+#include <deque>
+#include <mutex>
+#include <cmath>
+// =============================
 
 #include "common/ros/common.h"
 #include "lesta/core/core.h"
@@ -42,6 +49,12 @@ private:
   void lidarScanCallback(const sensor_msgs::PointCloud2Ptr &msg);
   void recordFootprints(const ros::TimerEvent &event);
   void publishLabelMap(const ros::TimerEvent &event);
+  
+  // =============================
+  // [new] IMU callback for soft-label generation
+  void imuCallback(const sensor_msgs::Imu::ConstPtr &msg);
+  float calculateSoftLabel();
+  // =============================
 
   pcl::PointCloud<Laser>::Ptr
   preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
@@ -71,6 +84,7 @@ private:
 
   // Subscribers & Publishers
   ros::Subscriber sub_lidarscan_;
+  ros::Subscriber sub_imu_; // [new] IMU subscriber
   ros::Publisher pub_downsampled_scan_;
   ros::Publisher pub_filtered_scan_;
   ros::Publisher pub_rasterized_scan_;
@@ -93,5 +107,15 @@ private:
 
   // State variables
   bool lidarscan_received_{false};
+
+  // =============================
+  // [new] IMU state variables and superparameters for soft-label 
+  std::deque<sensor_msgs::Imu::ConstPtr> imu_buffer_;
+  std::mutex imu_mutex_;
+
+  double imu_window_size_ = 1.0; // seconds
+  double lambda_decay_ = 0.05; // decay factor for older IMU data in soft label calculation
+  double min_soft_label_ = 0.2; // minimum soft label value to prevent zero labels
+  // =============================
 };
 } // namespace lesta_ros

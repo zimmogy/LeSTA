@@ -66,6 +66,10 @@ void LabelGenerationNode::initializePubSubs() {
                                  1,
                                  &LabelGenerationNode::lidarScanCallback,
                                  this);
+  // [new] IMU subscriber for soft-label generation
+  sub_imu = nh_.subscribe("/vectornav/IMU", 1000, &
+      LabelGenerationNode::imuCallback, this);
+  // ...
   pub_filtered_scan_ =
       nh_.advertise<sensor_msgs::PointCloud2>("/lesta/label_generation/scan_filtered", 1);
   pub_downsampled_scan_ =
@@ -213,7 +217,9 @@ void LabelGenerationNode::recordFootprints(const ros::TimerEvent &event) {
   grid_map::Position robot_position(base2map.transform.translation.x,
                                     base2map.transform.translation.y);
   auto &height_map = mapper_->getHeightMap();
-  label_generator_->addFootprint(height_map, robot_position);
+  // [new] Calculate soft label score based on IMU data and pass it to addFootprint
+  float current_score = calculateSoftLabel();
+  label_generator_->addFootprint(height_map, robot_position, current_score);
 }
 
 void LabelGenerationNode::publishLabelMap(const ros::TimerEvent &event) {
@@ -501,6 +507,41 @@ void LabelGenerationNode::toMapRegion(const HeightMap &map,
   marker.points[3].z = 0;
 
   marker.points[4] = marker.points[0];
+}
+// [新增代码] IMU 回调函数，维护滑动窗口
+void LabelGenerationNode::imuCallback(const sensor_msgs::Imu::ConstPtr& msg) {
+  std::lock_guard<std::mutex> lock(imu_mutex_);
+  imu_buffer_.push_back(msg);
+  
+  while (!imu_buffer_.empty()) {
+    double time_diff = (msg->header.stamp - imu_buffer_.front()->header.stamp).toSec();
+    if (time_diff > imu_window_size_) {
+      imu_buffer_.pop_front();
+    } else {
+      break;
+    }
+  }
+// [新增代码] 计算当前时间窗口内的软标签得分
+float LabelGenerationNode::calculateSoftLabel() {
+  std::lock_guard<std::mutex> lock(imu_mutex_);
+  
+  if (imu_buffer_.empty()) return 1.0f; 
+
+  double sum_z = 0.0;
+  for (const auto& imu : imu_buffer_) {
+    sum_z += imu->linear_acceleration.z;
+  }
+  double mean_z = sum_z / imu_buffer_.size();
+
+  double sq_sum = 0.0;
+  for (const auto& imu : imu_buffer_) {
+    sq_sum += std::pow(imu->linear_acceleration.z - mean_z, 2);
+  }
+  double variance_z = sq_sum / imu_buffer_.size();
+
+  float score = std::exp(-lambda_decay_ * variance_z);
+  return std::max((float)min_soft_label_, score);
+}
 }
 } // namespace lesta_ros
 

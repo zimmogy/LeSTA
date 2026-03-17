@@ -25,7 +25,7 @@ public:
   using Traversability = lesta_types::Traversability;
   LabelGenerator(const Config &cfg);
 
-  void addFootprint(HeightMap &map, grid_map::Position &robot_position);
+  void addFootprint(HeightMap &map, grid_map::Position &robot_position, float traversability_score = 1.0f);
   void addObstacles(HeightMap &map, const std::vector<grid_map::Index> &measured_indices);
 
 void NewFunction(height_mapping::HeightMap & map, const grid_map::Index & index);

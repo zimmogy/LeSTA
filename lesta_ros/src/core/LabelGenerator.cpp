@@ -19,7 +19,7 @@ void LabelGenerator::ensureLabelLayers(HeightMap &map) {
   map.addLayer(layers::Label::TRAVERSABILITY);
 }
 
-void LabelGenerator::addFootprint(HeightMap &map, grid_map::Position &robot_position) {
+void LabelGenerator::addFootprint(HeightMap &map, grid_map::Position &robot_position, float traversability_score) {
 
   ensureLabelLayers(map);
 
@@ -36,7 +36,7 @@ void LabelGenerator::addFootprint(HeightMap &map, grid_map::Position &robot_posi
       continue;
 
     map.at(layers::Label::FOOTPRINT, *iterator) = 1.0;
-    map.at(layers::Label::TRAVERSABILITY, *iterator) = (float)Traversability::TRAVERSABLE;
+    map.at(layers::Label::TRAVERSABILITY, *iterator) = traversability_score;
   }
 }
 
