@@ -521,6 +521,7 @@ void LabelGenerationNode::imuCallback(const sensor_msgs::Imu::ConstPtr& msg) {
       break;
     }
   }
+}
 // [新增代码] 计算当前时间窗口内的软标签得分
 float LabelGenerationNode::calculateSoftLabel() {
   std::lock_guard<std::mutex> lock(imu_mutex_);
