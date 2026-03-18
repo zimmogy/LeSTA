@@ -25,6 +25,10 @@ struct Traversability {
   static constexpr const char *LOG_ODDS_PROBABILITY = "mapping/probability";
   static constexpr const char *LOG_ODDS_BINARY = "mapping/binary";
 };
+// [new] Add a new layer definition for visual cost
+struct Visual {
+  static constexpr const char *COST = "visual_cost";
+}
 
 } // namespace layers
 } // namespace lesta

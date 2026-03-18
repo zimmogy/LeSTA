@@ -6,6 +6,9 @@ add_compile_options(-std=c++17)
 find_package(Torch REQUIRED PATHS /opt/libtorch)
 
 find_package(PCL REQUIRED)
+
+find_package(OpenCV REQUIRED)
+
 find_package(catkin REQUIRED COMPONENTS
     height_mapping_core
     roscpp
@@ -13,6 +16,9 @@ find_package(catkin REQUIRED COMPONENTS
     pcl_conversions
     grid_map_ros
     message_generation
+    cv_bridge
+    sensor_msgs
+    message_filters
 )
 
 add_service_files(
@@ -35,6 +41,9 @@ catkin_package(
     tf2_ros
     pcl_conversions
     grid_map_ros
+    cv_bridge
+    sensor_msgs
+    message_filters
 )
 
 
@@ -48,6 +57,7 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   ${TORCH_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 # Node: Label generation
@@ -61,6 +71,7 @@ add_executable(label_generation_node
 target_link_libraries(label_generation_node
   ${PCL_LIBRARIES}
   ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
 )
 
 # Node: Traversability prediction
@@ -75,6 +86,7 @@ target_link_libraries(trav_prediction_node
   ${PCL_LIBRARIES}
   ${catkin_LIBRARIES}
   ${TORCH_LIBRARIES}
+  ${OpenCV_LIBRARIES}
 )
 
 # Node: Traversability mapping
@@ -91,4 +103,5 @@ target_link_libraries(trav_mapping_node
   ${PCL_LIBRARIES}
   ${catkin_LIBRARIES}
   ${TORCH_LIBRARIES}
+  ${OpenCV_LIBRARIES}
 )

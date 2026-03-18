@@ -21,6 +21,9 @@ void FeatureExtractor::ensureFeatureLayers(HeightMap &map) {
   map.addLayer(layers::Feature::SLOPE);
   map.addLayer(layers::Feature::ROUGHNESS);
   map.addLayer(layers::Feature::CURVATURE);
+  
+  //[new] ensure feature layers for visualization has been initialized
+  map.addLayer(layers::Visual::COST);
 
   // Layers for visualization of normal vector
   map.addLayer(layers::Feature::NORMAL_X);

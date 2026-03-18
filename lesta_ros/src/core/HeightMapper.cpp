@@ -8,6 +8,8 @@
  */
 
 #include "lesta/core/HeightMapper.h"
+#include <Eigen/Geometry>
+#include <opencv2/opencv.hpp>
 
 namespace lesta {
 
@@ -230,5 +232,77 @@ HeightMapper::cloudRasterizationAlt<Color>(const pcl::PointCloud<Color>::Ptr &cl
 template void
 HeightMapper::raycasting<Color>(const Eigen::Vector3f &sensorOrigin,
                                 const typename pcl::PointCloud<Color>::Ptr &cloud);
+// [new]
+// ============================================================================
+void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_base,
+                                       const cv::Mat& visual_cost_img,
+                                       const Eigen::Matrix4f& T_cam_base,
+                                       const cv::Mat& K) {
+  if (cloud_base->empty()) return;
 
+  // 1. initialize rellis-3d camera intrinsics K
+  cv::Mat K = cv::Mat::zeros(3,3, CV_64F);
+  K.at<double>(0,0) = 2813.643275; // fx
+  K.at<double>(1,1) = 2808.326079; // fy
+  K.at<double>(0,2) = 969.285772;       // cx
+  K.at<double>(1,2) = 624.049972;       // cy
+  K.at<double>(2,2) = 1.0;
+
+  // 2. initialize Rellis-3d lidar-camera extrinsics matrix
+  Eigen::Quaternionf q(-0.50507811, 0.51206185, 0.49024953, -0.49228464); // (w, x, y, z)
+  Eigen::Vector3f t(-0.13165462, 0.03870398, -0.17253834);
+
+  Eigen::Matrix4f RT = Eigen::Matrix4f::Identity();
+  RT.block<3, 3>(0, 0) = q.toRotationMatrix();
+  RT.block<3, 1>(0, 3) = t;
+  
+  // acording to the Rellis-3d dataset, we need the inverse transform from base to camera
+  Eigen::Matrix4f T_cam_base = RT.inverse();
+
+  // ensure GridMap has the visual cost layer, initialized to 0.0 (absolute flat/safe)
+  if(!map_.exists(layers::Visual::COST)) {
+    map_.addLayer(layers::Visual::COST, 0.0); 
+  }
+
+  // 3. 遍历当前帧雷达点云 (已转到 Base 系)
+  for (const auto& pt : cloud_base->points) {
+    
+    if (std::abs(pt.x) < 0.1 && std::abs(pt.y) <0.1) continue;
+
+    // 将 LiDAR 系下的点转换到相机坐标系  
+    Eigen::Vector4f p_l(pt.x, pt.y, pt.z, 1.0);
+    Eigen::Vector4f p_c = T_cam_base * p_l;
+
+    // 剔除相机后方的点
+    if (p_c.z() <= 0.0) continue;
+
+    // 利用 RELLIS-3D 相机内参投影到像素平面:
+    double u = (K.at<double>(0,0) * p_c.x() + K.at<double>(0,2) * p_c.z()) / p_c.z();
+    double v = (K.at<double>(1,1) * p_c.y() + K.at<double>(1,2) * p_c.z()) / p_c.z();
+
+    int px = std::round(u);
+    int py = std::round(v);
+
+    // 4. 检查是否在图像有效视野范围内
+    if (px >= 0 && px < visual_cost_img.cols && py >= 0 && py < visual_cost_img.rows) {
+      
+      // 采样对应的视觉代价
+      float cost = visual_cost_img.at<float>(py, px);
+
+      // 4. 将代价记录到对应的 2.5D GridMap 栅格中
+      grid_map::Position position(pt.x, pt.y);
+      grid_map::Index index;
+      
+      // 只有当点落在当前地图边界内时才更新
+      if (map_.getIndex(position, index)) {
+        // 保守更新策略：如果同一个栅格落入多个点，取最大的 visual_cost
+        float current_cost = map_.at(layers::Visual::COST, index);
+        if (std::isnan(current_cost) || cost > current_cost) {
+            map_.at(layers::Visual::COST, index) = cost;
+        }
+      }
+    }
+  }
+}
+// ============================================================================
 } // namespace lesta

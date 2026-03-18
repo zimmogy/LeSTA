@@ -11,6 +11,8 @@
 
 // Height Map
 #include <height_mapping_core/height_mapping_core.h>
+// [new] OpenCV dependency
+#include <opencv2/opencv.hpp>
 
 namespace lesta {
 
@@ -79,7 +81,13 @@ public:
    * @brief Clear heightmap
    */
   void clearMap() { map_.clearAll(); }
+  // ... original method ...
 
+  // [new] Integration function of visual cost
+  void integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_base,
+                           const cv::Mat& visual_cost_img, 
+                           const Eigen::Matrix4f& T_cam_base, 
+                           const cv::Mat& K);
 private:
   void initMap();
   void initHeightEstimator();

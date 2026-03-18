@@ -57,8 +57,17 @@ void TravMappingNode::loadConfig(const ros::NodeHandle &nh) {
 }
 
 void TravMappingNode::initializePubSubs() {
-  sub_lidarscan_ =
-      nh_.subscribe(cfg_.lidarscan_topic, 1, &TravMappingNode::lidarScanCallback, this);
+  // sub_lidarscan_ =
+  //     nh_.subscribe(cfg_.lidarscan_topic, 1, &TravMappingNode::lidarScanCallback, this);
+  
+  // [new] Add subscriber for visual cost map
+  // ================================
+  sub_lidarscan_sync_.subscribe(nh_, cfg_.lidarscan_topic, 10);
+  sub_visual_cost_sync_.subscribe(nh_, "/visual_cost_map", 10); // subscribe to visual cost map topic
+  sync_ = std::make_unique<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(10), sub_lidarscan_sync_, sub_visual_cost_sync_);
+  sync_->registerCallback(boost::bind(&TravMappingNode::syncedCallback, this, _1, _2));
+  // =================================
+
   pub_downsampled_scan_ =
       nh_.advertise<sensor_msgs::PointCloud2>("/lesta/mapping/scan_downsampled", 1);
   pub_filtered_scan_ =
@@ -74,7 +83,52 @@ void TravMappingNode::initializePubSubs() {
     // TODO: Add debug publishers
   }
 }
+// [new] achieve new synced callback function for lidar scan and visual cost map
+// =================================
+void TravMappingNode::sensorSyncedCallback( const sensor_msgs::PointCloud2ConstPtr& scan_msg, 
+                                            const sensor_msgs::ImageConstPtr& cost_img_msg) {
+  // 1. get extrinsic parameters of TF
+  geometry_msgs::TransformStamped sensor2base, base2map;
+  if (!tf_.lookupTransform(frame_id_.robot, frame_id_.sensor, sensor2base) ||
+      !tf_.lookupTransform(frame_id_.map, frame_id_.robot, base2map)){
+    ROS_WARN("Waiting for TF transforms...");
+    return;
+  }
+  // 2. convert ROS msg to OpenCV Mat
+  cv_bridge::CvImagePtr cv_ptr;
+  try {
+    // assume the visual cost map is published as a single-channel 32-bit image
+    cv_ptr = cv_bridge::toCvCopy(cost_img_msg, sensor_msgs::image_encodings::TYPE_32FC1);
+  } catch (cv_bridge::Exception& e) {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+}  
+  cv::Mat visual_cost_map = cv_ptr->image;
 
+  // 3. preprocess the cloudpoint
+  auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
+  pcl::moveFromROSMsg(*scan_msg, *scan_raw);
+  auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
+  if (!scan_preprocessed) {
+      return;
+  }
+  // 4. [core patch]:vision-geometry fusion
+  // call the function with hardcoded parameters in HeightMapper.cpp
+  // It will inject the visual_cost_img into the 2.5D GridMap's visual_cost layer.
+
+  mapper_->integrateVisualCost(scan_preprocessed, visual_cost_map);
+  
+  // 5. continue original traversability mapping pipeline and featrue extraction 
+  auto transform_sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
+  Eigen::Vector3f sensor_origin(transform_sensor2map.transform.translation.x,
+                                transform_sensor2map.transform.translation.y,
+                                transform_sensor2map.transform.translation.z);
+  auto measured_indices = terrainMapping(scan_preprocessed, sensor_origin);
+  feature_extractor_->extractFeatures(mapper_->getHeightMap(), measured_indices);
+  trav_mapper_->traversabilityMapping(mapper_->getHeightMap(), measured_indices);
+  map_publish_timer_.start(); // start publishing maps
+}
+// =================================
 void TravMappingNode::initializeServices() {
   //
 }

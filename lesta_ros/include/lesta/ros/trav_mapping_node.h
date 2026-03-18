@@ -13,6 +13,12 @@
 
 #include "common/ros/common.h"
 #include "lesta/core/core.h"
+// [new] added .h file
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <sensor_msgs/Image.h>
+#include <cv_bridge/cv_bridge.h>
 
 namespace lesta_ros {
 
@@ -68,7 +74,19 @@ private:
   ros::NodeHandle nh_;
 
   // Subscribers & Publishers
-  ros::Subscriber sub_lidarscan_;
+  // ros::Subscriber sub_lidarscan_;
+  // [new] Add subscriber for visual cost map
+  // =================================
+  message_filters::Subscriber<sensor_msgs::PointCloud2> sub_lidarscan_sync_;
+  message_filters::Subscriber<sensor_msgs::Image> sub_visual_cost_sync_;
+  
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, sensor_msgs::Image>
+      SyncPolicy;
+  std::unique_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
+  // syncedCallback function 
+  void syncedCallback(const sensor_msgs::PointCloud2ConstPtr& scan_msg, const sensor_msgs::ImageConstPtr& cost_img_msg);
+  // =================================
+
   ros::Publisher pub_downsampled_scan_;
   ros::Publisher pub_filtered_scan_;
   ros::Publisher pub_rasterized_scan_;
