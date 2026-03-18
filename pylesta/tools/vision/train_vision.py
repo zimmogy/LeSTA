@@ -7,7 +7,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from pylesta.lesta.core.models.vision_cost_net import MobileNetV3CostNet
 from pylesta.lesta.core.loss_fns.masked_loss import MaskedSmoothL1Loss
-from pylesta.lesta.core.datasets.vision_dataset.dataset import RellisVisionDataset
+from pylesta.lesta.core.datasets.pcd_dataset.vision_dataset.dataset import RellisVisionDataset
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
