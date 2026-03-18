@@ -62,10 +62,16 @@ void LabelGenerationNode::loadConfig(const ros::NodeHandle &nh) {
 
 void LabelGenerationNode::initializePubSubs() {
 
-  sub_lidarscan_ = nh_.subscribe(cfg_.lidarscan_topic,
-                                 1,
-                                 &LabelGenerationNode::lidarScanCallback,
-                                 this);
+  // sub_lidarscan_ = nh_.subscribe(cfg_.lidarscan_topic,
+  //                                1,
+  //                                &LabelGenerationNode::lidarScanCallback,
+  //                                this);
+  // [new] Synchronize LiDAR scan and visual cost map
+  sub_lidarscan_sync_.subscribe(nh_, cfg_.lidarscan_topic, 10);
+  sub_visual_cost_sync_.subscribe(nh_, "/visual_cost_map", 10);
+  sync_ = std::make_unique<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(10), sub_lidarscan_sync_, sub_visual_cost_sync_);
+  sync_->registerCallback(boost::bind(&LabelGenerationNode::sensorSyncCallback, this, _1, _2));
+
   // [new] IMU subscriber for soft-label generation
   sub_imu_ = nh_.subscribe("/vectornav/IMU", 1000, &
       LabelGenerationNode::imuCallback, this);
@@ -111,7 +117,8 @@ void LabelGenerationNode::initializeTimers() {
                                        false,
                                        false);
 }
-
+// original LiDAR callback function
+"""
 void LabelGenerationNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &msg) {
 
   if (!lidarscan_received_) {
@@ -153,6 +160,41 @@ void LabelGenerationNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &m
 }
 
 pcl::PointCloud<Laser>::Ptr
+"""
+// [new] Synchronized callback for LiDAR scan and visual cost map
+void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2ConstPtr &scan_msg,
+                                             const sensor_msgs::ImageConstPtr &cost_msg) {
+  if (!lidarscan_received_) { /* 原有启动 Timer 逻辑不变 */ ... }
+
+  geometry_msgs::TransformStamped sensor2base, base2map;
+  if (!tf_.lookupTransform(...) /* 原有 TF 检查 */) return;
+
+  // 解析图像
+  cv_bridge::CvImagePtr cv_ptr;
+  try {
+    cv_ptr = cv_bridge::toCvCopy(cost_msg, sensor_msgs::image_encodings::TYPE_32FC1);
+  } catch (cv_bridge::Exception& e) { return; }
+
+  // 点云转 PCL
+  auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
+  pcl::fromROSMsg(*scan_msg, *scan_raw);
+  
+  auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
+  if (!scan_preprocessed) return;
+
+  // 【核心新增】将图像代价着色注入到 HeightMap
+  // 注意：需要您在前置讨论中写好的 HeightMapper::integrateVisualCost 方法
+  mapper_->integrateVisualCost(scan_preprocessed, cv_ptr->image);
+
+  // 后续提取逻辑不变
+  auto sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
+  Eigen::Vector3f sensor_position3d(...);
+  
+  auto measured_indices = terrainMapping(scan_preprocessed, sensor_position3d);
+  feature_extractor_->extractFeatures(mapper_->getHeightMap(), measured_indices);
+  label_generator_->addObstacles(mapper_->getHeightMap(), measured_indices);
+}
+
 LabelGenerationNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
                                     const geometry_msgs::TransformStamped &sensor2base,
                                     const geometry_msgs::TransformStamped &base2map) {
@@ -363,6 +405,12 @@ bool LabelGenerationNode::saveLabelMap(lesta::save_training_data::Request &req,
     point.footprint = height_map.at(lesta::layers::Label::FOOTPRINT, index);
     point.traversability_label =
         height_map.at(lesta::layers::Label::TRAVERSABILITY, index);
+    // [new] Load visual_cost safely, default to NaN if not present
+    if (height_map.exists(lesta::layers::Visual::COST)) {
+      point.visual_cost = height_map.at(lesta::layers::Visual::COST, index);
+    } else {
+      point.visual_cost = std::nanf("");
+    } 
     label_cloud.push_back(point);
   }
   label_cloud.width = label_cloud.points.size();
@@ -543,7 +591,8 @@ float LabelGenerationNode::calculateSoftLabel() {
   float score = std::exp(-lambda_decay_ * variance_z);
   return std::max((float)min_soft_label_, score);
 }
-}// namespace lesta_ros
+}
+// namespace lesta_ros
 
 int main(int argc, char **argv) {
 

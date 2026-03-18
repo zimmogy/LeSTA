@@ -17,6 +17,11 @@
 #include <deque>
 #include <mutex>
 #include <cmath>
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <sensor_msgs/Imu.h>
+#include <cv_bridge/cv_bridge.h>
 // =============================
 
 #include "common/ros/common.h"
@@ -55,6 +60,8 @@ private:
   void imuCallback(const sensor_msgs::Imu::ConstPtr &msg);
   float calculateSoftLabel();
   // =============================
+  // [new] 
+  void sensorSyncCallback(const sensor_msgs::PointCloud2ConstPtr& scan_msg, const sensor_msgs::ImageConstPtr& visual_cost_msg);
 
   pcl::PointCloud<Laser>::Ptr
   preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
@@ -83,8 +90,15 @@ private:
   ros::NodeHandle nh_;
 
   // Subscribers & Publishers
-  ros::Subscriber sub_lidarscan_;
+  // ros::Subscriber sub_lidarscan_;
+  // [new] 
+  message_filters::Subscriber<sensor_msgs::PointCloud2> sub_lidarscan_sync_;
+  message_filters::Subscriber<sensor_msgs::Image> sub_visual_cost_sync_;
+  typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, sensor_msgs::Image> SyncPolicy;
+  message_filters::Synchronizer<SyncPolicy> sync_;
+  std::unique_ptr<message_filters::Synchronizer<SyncPolicy>> sync_ptr_;
   ros::Subscriber sub_imu_; // [new] IMU subscriber
+
   ros::Publisher pub_downsampled_scan_;
   ros::Publisher pub_filtered_scan_;
   ros::Publisher pub_rasterized_scan_;
@@ -117,5 +131,7 @@ private:
   double lambda_decay_ = 0.05; // decay factor for older IMU data in soft label calculation
   double min_soft_label_ = 0.2; // minimum soft label value to prevent zero labels
   // =============================
+  // [new]
+
 };
 } // namespace lesta_ros
