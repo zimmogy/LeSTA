@@ -28,7 +28,7 @@ struct Traversability {
 // [new] Add a new layer definition for visual cost
 struct Visual {
   static constexpr const char *COST = "visual_cost";
-}
+};
 
 } // namespace layers
 } // namespace lesta

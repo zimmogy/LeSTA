@@ -23,6 +23,7 @@ struct EIGEN_ALIGN16 LabelPoint {
   float variance;
   float footprint;
   float traversability_label;
+  float visual_cost; // [new] Add a new field for visual cost
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
 
@@ -40,4 +41,5 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(
                                               footprint,
                                               footprint)(float,
                                                          traversability_label,
-                                                         traversability_label))
+                                                         traversability_label)(float, visual_cost, visual_cost) // [new] Register the new field
+        )

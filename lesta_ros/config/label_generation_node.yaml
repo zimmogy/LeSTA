@@ -22,3 +22,5 @@ height_mapper:
 label_generator:
   footprint_radius: 0.3            # [meter], Circular footprint (within radius = positive label)
   max_traversable_step: 0.2        # [meter], Step height difference (higher = negative label)
+  # [new] Vision-priori safety thresholds
+  max_traversable_visual_cost: 0.3

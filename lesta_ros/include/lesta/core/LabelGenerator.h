@@ -20,6 +20,7 @@ public:
   struct Config {
     double footprint_radius;
     double max_traversable_step;
+    double max_traversable_visual_cost; // New parameter for visual cost threshold
   } cfg;
 
   using Traversability = lesta_types::Traversability;
