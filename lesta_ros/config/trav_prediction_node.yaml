@@ -20,11 +20,12 @@ height_mapper:
 
 traversability_network:
   model_path: "$(env HOME)/Downloads/LeSTA_campus_road_libtorch.pt"
-  input_dimension: 4
+  input_dimension: 5
   feature_fields:
     - step
     - slope
     - roughness
     - curvature
+    - visual_cost # [new] Vision-priori cost feature
     # - elevation_variance
   binary_threshold: 0.5

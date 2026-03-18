@@ -58,6 +58,7 @@ private:
       {"roughness", layers::Feature::ROUGHNESS},
       {"curvature", layers::Feature::CURVATURE},
       {"elevation_variance", height_mapping::layers::Height::ELEVATION_VARIANCE},
+      {"visual_cost", layers::Visual::COST},
   };
 };
 
