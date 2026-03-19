@@ -244,7 +244,7 @@ pcl::PointCloud<Laser>::Ptr LabelGenerationNode::preprocessScan(const pcl::Point
     return nullptr;
   return scan_preprocessed;
 }
-
+/*
 LabelGenerationNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
                                     const geometry_msgs::TransformStamped &sensor2base,
                                     const geometry_msgs::TransformStamped &base2map) {
@@ -281,7 +281,7 @@ LabelGenerationNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
     return nullptr;
   return scan_preprocessed;
 }
-
+*/
 std::vector<grid_map::Index>
 LabelGenerationNode::terrainMapping(const pcl::PointCloud<Laser>::Ptr &cloud_input,
                                     const Eigen::Vector3f &sensor_origin) {
