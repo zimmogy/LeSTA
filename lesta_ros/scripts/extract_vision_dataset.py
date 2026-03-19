@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 # 该脚本用于从 RELLIS-3D 数据集中提取视觉数据集，生成图像和对应的稀疏轨迹掩码。
 # 主要功能：
@@ -6,7 +7,6 @@
 # 3. 使用 TF 监听器获取未来轨迹点在当前图像坐标系中的位置，并根据轨迹点的分布计算软标签。
 # 4. 将图像和对应的稀疏轨迹掩码保存到指定目录，供后续训练使用。
 """
-#!/usr/bin/env python3
 import rospy
 import cv2
 import numpy as np
