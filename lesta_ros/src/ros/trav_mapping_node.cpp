@@ -107,7 +107,7 @@ void TravMappingNode::syncedCallback( const sensor_msgs::PointCloud2ConstPtr& sc
 
   // 3. preprocess the cloudpoint
   auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
-  pcl::moveFromROSMsg(*scan_msg, *scan_raw);
+  pcl::fromROSMsg(*scan_msg, *scan_raw);
   auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
   if (!scan_preprocessed) {
       return;

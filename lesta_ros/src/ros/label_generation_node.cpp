@@ -164,16 +164,28 @@ pcl::PointCloud<Laser>::Ptr
 // [new] Synchronized callback for LiDAR scan and visual cost map
 void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2ConstPtr &scan_msg,
                                              const sensor_msgs::ImageConstPtr &cost_msg) {
-  if (!lidarscan_received_) { /* 原有启动 Timer 逻辑不变 */ ... }
+  if (!lidarscan_received_) { 
+    lidarscan_received_ = true;
+    frame_id_.sensor = scan_msg->header.frame_id;
+    pose_update_timer_.start();
+    map_publish_timer_.start();
+    std::cout << "\033[1;32m[lesta_ros::LabelGenerationNode]: Pointcloud & Image Received! "
+              << "Use fusion for label generation... \033[0m\n";
+  }
 
   geometry_msgs::TransformStamped sensor2base, base2map;
-  if (!tf_.lookupTransform(...) /* 原有 TF 检查 */) return;
+  if (!tf_.lookupTransform(frame_id_.robot, frame_id_.sensor, sensor2base) ||
+      !tf_.lookupTransform(frame_id_.map, frame_id_.robot, base2map)) {
+    return;
+  }
 
   // 解析图像
   cv_bridge::CvImagePtr cv_ptr;
   try {
     cv_ptr = cv_bridge::toCvCopy(cost_msg, sensor_msgs::image_encodings::TYPE_32FC1);
-  } catch (cv_bridge::Exception& e) { return; }
+  } catch (cv_bridge::Exception& e) { 
+    return; 
+  }
 
   // 点云转 PCL
   auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
@@ -182,17 +194,55 @@ void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2Const
   auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
   if (!scan_preprocessed) return;
 
-  // 【核心新增】将图像代价着色注入到 HeightMap
-  // 注意：需要您在前置讨论中写好的 HeightMapper::integrateVisualCost 方法
+  // 将图像代价着色注入到 HeightMap
   mapper_->integrateVisualCost(scan_preprocessed, cv_ptr->image);
 
-  // 后续提取逻辑不变
+  // 后续提取逻辑
   auto sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
-  Eigen::Vector3f sensor_position3d(...);
+  Eigen::Vector3f sensor_position3d(sensor2map.transform.translation.x,
+                                    sensor2map.transform.translation.y,
+                                    sensor2map.transform.translation.z);
   
   auto measured_indices = terrainMapping(scan_preprocessed, sensor_position3d);
   feature_extractor_->extractFeatures(mapper_->getHeightMap(), measured_indices);
   label_generator_->addObstacles(mapper_->getHeightMap(), measured_indices);
+}
+
+pcl::PointCloud<Laser>::Ptr LabelGenerationNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
+                                    const geometry_msgs::TransformStamped &sensor2base,
+                                    const geometry_msgs::TransformStamped &base2map) {
+
+  // 1. Transform pointcloud to base frame
+  auto scan_base = PointCloudOps::applyTransform<Laser>(scan_raw, sensor2base);
+
+  // For visualization: downsample pointcloud
+  auto scan_downsampled = PointCloudOps::downsampleVoxel<Laser>(scan_base, 0.4);
+  publishDownsampledScan(scan_downsampled);
+
+  // 2. Fast height filtering
+  auto scan_preprocessed = boost::make_shared<pcl::PointCloud<Laser>>();
+  mapper_->fastHeightFilter(scan_base, scan_preprocessed);
+
+  // 3. Pass through filter
+  scan_preprocessed =
+      PointCloudOps::passThrough<Laser>(scan_preprocessed, "x", -5.0, 5.0);
+  scan_preprocessed =
+      PointCloudOps::passThrough<Laser>(scan_preprocessed, "y", -5.0, 5.0);
+
+  // (Optional) Remove remoter points
+  if (cfg_.remove_backpoints)
+    scan_preprocessed =
+        PointCloudOps::filterAngle2D<Laser>(scan_preprocessed, -135.0, 135.0);
+
+  // 4. Publish filtered scan
+  publishFilteredScan(scan_preprocessed);
+
+  // 5. Transform pointcloud to map frame
+  scan_preprocessed = PointCloudOps::applyTransform<Laser>(scan_preprocessed, base2map);
+
+  if (scan_preprocessed->empty())
+    return nullptr;
+  return scan_preprocessed;
 }
 
 LabelGenerationNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,

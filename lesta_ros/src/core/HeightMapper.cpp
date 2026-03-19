@@ -10,6 +10,8 @@
 #include "lesta/core/HeightMapper.h"
 #include <Eigen/Geometry>
 #include <opencv2/opencv.hpp>
+// [new]
+#include "lesta/types/layer_definitions.h"
 
 namespace lesta {
 
@@ -235,9 +237,7 @@ HeightMapper::raycasting<Color>(const Eigen::Vector3f &sensorOrigin,
 // [new]
 // ============================================================================
 void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_base,
-                                       const cv::Mat& visual_cost_img,
-                                       const Eigen::Matrix4f& T_cam_base,
-                                       const cv::Mat& K) {
+                                       const cv::Mat& visual_cost_img) {
   if (cloud_base->empty()) return;
 
   // 1. initialize rellis-3d camera intrinsics K
@@ -257,11 +257,11 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
   RT.block<3, 1>(0, 3) = t;
   
   // acording to the Rellis-3d dataset, we need the inverse transform from base to camera
-  Eigen::Matrix4f T_cam_base = RT.inverse();
+  Eigen::Matrix4f T_base_to_cam = RT.inverse();
 
   // ensure GridMap has the visual cost layer, initialized to 0.0 (absolute flat/safe)
-  if(!map_.exists(layers::Visual::COST)) {
-    map_.addLayer(layers::Visual::COST, 0.0); 
+  if(!map_.exists(lesta::layers::Visual::COST)) {
+    map_.addLayer(lesta::layers::Visual::COST, 0.0); 
   }
 
   // 3. 遍历当前帧雷达点云 (已转到 Base 系)
