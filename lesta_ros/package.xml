@@ -2,7 +2,7 @@
 <package format="2">
   <name>lesta</name>
   <version>0.0.0</version>
-  <description></description>
+  <description>this file is revised from the original github repo of LeSTA</description>
   <maintainer email="whr511723@gmail.com">Wang Haoran</maintainer>
   <license>.</license>
 
