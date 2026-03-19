@@ -95,8 +95,8 @@ private:
   message_filters::Subscriber<sensor_msgs::PointCloud2> sub_lidarscan_sync_;
   message_filters::Subscriber<sensor_msgs::Image> sub_visual_cost_sync_;
   typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::PointCloud2, sensor_msgs::Image> SyncPolicy;
-  message_filters::Synchronizer<SyncPolicy> sync_;
-  std::unique_ptr<message_filters::Synchronizer<SyncPolicy>> sync_ptr_;
+  std::unique_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
+
   ros::Subscriber sub_imu_; // [new] IMU subscriber
 
   ros::Publisher pub_downsampled_scan_;

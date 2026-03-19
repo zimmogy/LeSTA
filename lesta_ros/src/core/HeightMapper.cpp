@@ -241,12 +241,12 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
   if (cloud_base->empty()) return;
 
   // 1. initialize rellis-3d camera intrinsics K
-  cv::Mat K = cv::Mat::zeros(3,3, CV_64F);
-  K.at<double>(0,0) = 2813.643275; // fx
-  K.at<double>(1,1) = 2808.326079; // fy
-  K.at<double>(0,2) = 969.285772;       // cx
-  K.at<double>(1,2) = 624.049972;       // cy
-  K.at<double>(2,2) = 1.0;
+  cv::Mat K_intrinsic = cv::Mat::zeros(3,3, CV_64F);
+  K_intrinsic.at<double>(0,0) = 2813.643275; // fx
+  K_intrinsic.at<double>(1,1) = 2808.326079; // fy
+  K_intrinsic.at<double>(0,2) = 969.285772;       // cx
+  K_intrinsic.at<double>(1,2) = 624.049972;       // cy
+  K_intrinsic.at<double>(2,2) = 1.0;
 
   // 2. initialize Rellis-3d lidar-camera extrinsics matrix
   Eigen::Quaternionf q(-0.50507811, 0.51206185, 0.49024953, -0.49228464); // (w, x, y, z)
@@ -271,14 +271,14 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
 
     // 将 LiDAR 系下的点转换到相机坐标系  
     Eigen::Vector4f p_l(pt.x, pt.y, pt.z, 1.0);
-    Eigen::Vector4f p_c = T_cam_base * p_l;
+    Eigen::Vector4f p_c = T_base_to_cam * p_l;
 
     // 剔除相机后方的点
     if (p_c.z() <= 0.0) continue;
 
     // 利用 RELLIS-3D 相机内参投影到像素平面:
-    double u = (K.at<double>(0,0) * p_c.x() + K.at<double>(0,2) * p_c.z()) / p_c.z();
-    double v = (K.at<double>(1,1) * p_c.y() + K.at<double>(1,2) * p_c.z()) / p_c.z();
+    double u = (K_intrinsic.at<double>(0,0) * p_c.x() + K_intrinsic.at<double>(0,2) * p_c.z()) / p_c.z();
+    double v = (K_intrinsic.at<double>(1,1) * p_c.y() + K_intrinsic.at<double>(1,2) * p_c.z()) / p_c.z();
 
     int px = std::round(u);
     int py = std::round(v);
@@ -296,7 +296,7 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
       // 只有当点落在当前地图边界内时才更新
       if (map_.getIndex(position, index)) {
         // 保守更新策略：如果同一个栅格落入多个点，取最大的 visual_cost
-        float current_cost = map_.at(layers::Visual::COST, index);
+        float current_cost = map_.at(lesta::layers::Visual::COST, index);
         if (std::isnan(current_cost) || cost > current_cost) {
             map_.at(layers::Visual::COST, index) = cost;
         }

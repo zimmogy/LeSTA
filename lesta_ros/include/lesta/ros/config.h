@@ -60,7 +60,7 @@ static lesta::LabelGenerator::Config loadConfig(const ros::NodeHandle &nh) {
   nh.param<double>("footprint_radius", cfg.footprint_radius, 0.5);
   nh.param<double>("max_traversable_step", cfg.max_traversable_step, 0.1);
   // New parameter for visual cost threshold, default set to 0.3
-  cfg.param<double>("max_traversable_visual_cost", cfg.max_traversable_visual_cost, 0.3);
+  nh.param<double>("max_traversable_visual_cost", cfg.max_traversable_visual_cost, 0.3);
 
   return cfg;
 }

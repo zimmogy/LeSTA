@@ -85,7 +85,7 @@ void TravMappingNode::initializePubSubs() {
 }
 // [new] achieve new synced callback function for lidar scan and visual cost map
 // =================================
-void TravMappingNode::sensorSyncedCallback( const sensor_msgs::PointCloud2ConstPtr& scan_msg, 
+void TravMappingNode::syncedCallback( const sensor_msgs::PointCloud2ConstPtr& scan_msg, 
                                             const sensor_msgs::ImageConstPtr& cost_img_msg) {
   // 1. get extrinsic parameters of TF
   geometry_msgs::TransformStamped sensor2base, base2map;

@@ -117,7 +117,7 @@ void LabelGenerationNode::initializeTimers() {
                                        false,
                                        false);
 }
-// original LiDAR callback function
+/* original LiDAR callback function
 """
 void LabelGenerationNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &msg) {
 
@@ -160,7 +160,7 @@ void LabelGenerationNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &m
 }
 
 pcl::PointCloud<Laser>::Ptr
-"""
+*/
 // [new] Synchronized callback for LiDAR scan and visual cost map
 void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2ConstPtr &scan_msg,
                                              const sensor_msgs::ImageConstPtr &cost_msg) {
