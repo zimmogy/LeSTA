@@ -22,6 +22,7 @@
     <rosparam command="load" file="$(find lesta_ros)/config/include/feature_visualization.yaml" />
   </node>
 
-  <node pkg="rviz" type="rviz" name="rviz_traversability_prediction" output="log" args="-d $(find lesta_ros)/launch/include/traversability_prediction.rviz" />
-
+  <node pkg="rviz" type="rviz" name="rviz_traversability_prediction" output="log" 
+        args="-d $(find lesta_ros)/launch/include/traversability_prediction_fusion.rviz" />
+  
 </launch>
