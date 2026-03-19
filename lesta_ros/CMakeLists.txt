@@ -5,6 +5,9 @@ add_compile_options(-std=c++17)
 # LibTorch setup
 find_package(Torch REQUIRED PATHS /opt/libtorch)
 
+# [加入 Torch 的 CXX flags,防止因 CXX11 ABI 导致链接错误]
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
 find_package(PCL REQUIRED)
 
 find_package(OpenCV REQUIRED)
@@ -44,6 +47,7 @@ catkin_package(
     cv_bridge
     sensor_msgs
     message_filters
+    message_runtime
 )
 
 
@@ -73,6 +77,8 @@ target_link_libraries(label_generation_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
+# Node: add dependencies to service messages header files
+add_dependencies(label_generation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # Node: Traversability prediction
 add_executable(trav_prediction_node
@@ -88,6 +94,8 @@ target_link_libraries(trav_prediction_node
   ${TORCH_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
+# Node: add message dependencies
+add_dependencies(trav_prediction_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # Node: Traversability mapping
 add_executable(trav_mapping_node
@@ -105,3 +113,4 @@ target_link_libraries(trav_mapping_node
   ${TORCH_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
+add_dependencies(trav_prediction_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
