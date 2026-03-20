@@ -33,39 +33,72 @@ class VisualCostInferNode:
 
     def image_callback(self, msg):
         # ==========================================
-        # 1. 纯 Numpy 解析输入图像 (彻底抛弃 cv_bridge)
+        # 1. 动态通道探测与 Bayer 图像解码
         # ==========================================
         try:
-            # 直接读取 ROS Image 的字节流并转化为 numpy 数组
-            img_np = np.frombuffer(msg.data, dtype=np.uint8).reshape((msg.height, msg.width, -1))
-            
-            # RELLIS-3D 的前视相机通常是 bgr8 或 rgb8 编码
-            if msg.encoding == 'bgr8':
-                img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-            elif msg.encoding == 'rgb8':
-                img_rgb = img_np
+            # 拿到原始字节流，根据图像尺寸反推它的通道数
+            img_1d = np.frombuffer(msg.data, dtype=np.uint8)
+            channels = len(img_1d) // (msg.height * msg.width)
+
+            if channels == 3:
+                # 原生 3 通道彩色图
+                img_np = img_1d.reshape((msg.height, msg.width, 3))
+                if 'bgr' in msg.encoding.lower():
+                    img_rgb = img_np[..., [2, 1, 0]]
+                else:
+                    img_rgb = img_np
+            elif channels == 1:
+                # 单通道图：大概率是 Bayer 格式 或 Mono8 灰度图
+                img_np = img_1d.reshape((msg.height, msg.width)) # 转为纯 2D 矩阵
+                encoding = msg.encoding.lower()
+                
+                if 'rggb' in encoding:
+                    img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BayerRG2RGB)
+                elif 'gbrg' in encoding:
+                    img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BayerGB2RGB)
+                elif 'grbg' in encoding:
+                    img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BayerGR2RGB)
+                elif 'bayer' in encoding: # 默认后备为 bggr (Basler相机常见)
+                    img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BayerBG2RGB)
+                else: # 纯灰度 mono8
+                    img_rgb = cv2.cvtColor(img_np, cv2.COLOR_GRAY2RGB)
             else:
-                # 兼容其他未知格式，强行截取前3通道
-                img_rgb = img_np[..., :3] 
+                rospy.logerr_throttle(1.0, f"[VisualCostNode] 无法解析的图像通道数: {channels}")
+                return
+                
+            # 强制转换为物理连续内存！(彻底消除上一版的 Warning 和底层崩溃隐患)
+            img_rgb = np.ascontiguousarray(img_rgb)
+            
         except Exception as e:
             rospy.logerr_throttle(1.0, f"[VisualCostNode] 内存解析图像失败: {e}")
             return
 
         # ==========================================
-        # 2. PyTorch 高速推理
+        # 2. PyTorch 推理与显存溢出 (OOM) 保护
         # ==========================================
-        # BGR转RGB并送入 GPU
-        img_tensor = torch.from_numpy(img_rgb.transpose(2, 0, 1)).float() / 255.0
-        img_tensor = img_tensor.unsqueeze(0).to(self.device)
-
-        with torch.no_grad():
-            cost_map_tensor = self.model(img_tensor)
+        try:
+            # 缩小图像进行推理，防止 1920x1200 超大尺寸把显存撑爆 (极其重要)
+            inference_h, inference_w = msg.height // 2, msg.width // 2
+            img_resized = cv2.resize(img_rgb, (inference_w, inference_h), interpolation=cv2.INTER_LINEAR)
             
-        # 降维得到纯正的 2D 数组 [H, W]
-        cost_map_np = cost_map_tensor.squeeze().cpu().numpy().astype(np.float32)
+            # 转为 Tensor，此时必定是严格的 3 通道 -> shape: [1, 3, 600, 960]
+            img_tensor = torch.from_numpy(img_resized.transpose(2, 0, 1)).float() / 255.0
+            img_tensor = img_tensor.unsqueeze(0).to(self.device)
+
+            with torch.no_grad():
+                cost_map_tensor = self.model(img_tensor)
+                
+            cost_map_small = cost_map_tensor.squeeze().cpu().numpy().astype(np.float32)
+            
+            # 将输出代价图放大回原尺寸 (1920x1200)，为了让 C++ 底层的相机投影矩阵能完美对齐！
+            cost_map_np = cv2.resize(cost_map_small, (msg.width, msg.height), interpolation=cv2.INTER_LINEAR)
+
+        except RuntimeError as e:
+            rospy.logerr_throttle(1.0, f"[VisualCostNode] PyTorch 推理异常: {e}")
+            return
 
         # ==========================================
-        # 3. 手动封装输出代价图 (彻底抛弃 cv_bridge)
+        # 3. 手动封装发布 (绕开 cv_bridge 冲突)
         # ==========================================
         try:
             cost_msg = Image()
@@ -74,8 +107,8 @@ class VisualCostInferNode:
             cost_msg.width = cost_map_np.shape[1]
             cost_msg.encoding = "32FC1"
             cost_msg.is_bigendian = 0
-            cost_msg.step = cost_msg.width * 4 # 32位单精度浮点数，每个像素占 4 bytes
-            cost_msg.data = cost_map_np.tobytes() # 直接转成二进制字节流
+            cost_msg.step = cost_msg.width * 4 
+            cost_msg.data = cost_map_np.tobytes() 
             
             self.pub_cost.publish(cost_msg)
         except Exception as e:
