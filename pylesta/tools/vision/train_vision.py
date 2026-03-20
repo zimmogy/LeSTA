@@ -16,7 +16,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 import cv2
-cv.setNumThreads(0)  # 禁止 OpenCV 使用多线程，避免与 PyTorch DataLoader 冲突
+cv2.setNumThreads(0)  # 禁止 OpenCV 使用多线程，避免与 PyTorch DataLoader 冲突
 
 from pylesta.lesta.core.models.vision_cost_net import MobileNetV3CostNet
 from pylesta.lesta.core.loss_fns.masked_loss import MaskedSmoothL1Loss
