@@ -111,9 +111,9 @@ class VisionDatasetExtractor:
                 try:
                     # 使用提取到的真实坐标系名称：计算未来 os1_cloud_node (LiDAR基准) 在当前 pylon_camera_node (相机) 中的位置
                     trans = self.tf_buffer.lookup_transform_full(
-                        target_frame='pylon_camera_node', 
+                        target_frame='pylon_camera', 
                         target_time=img_time,
-                        source_frame='os1_cloud_node',
+                        source_frame='os1_sensor',
                         source_time=future_time,
                         fixed_frame='odom',
                         timeout=rospy.Duration(0.05)
