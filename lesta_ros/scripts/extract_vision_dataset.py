@@ -126,7 +126,7 @@ class VisionDatasetExtractor:
                     trans = self.tf_buffer.lookup_transform_full(
                         target_frame='pylon_camera', 
                         target_time=img_time,
-                        source_frame='os1_sensor',
+                        source_frame='ouster1/os1_lidar',
                         source_time=future_time,
                         fixed_frame='odom',
                         timeout=rospy.Duration(0.05)
