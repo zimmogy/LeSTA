@@ -67,9 +67,9 @@ void LabelGenerationNode::initializePubSubs() {
   //                                &LabelGenerationNode::lidarScanCallback,
   //                                this);
   // [new] Synchronize LiDAR scan and visual cost map
-  sub_lidarscan_sync_.subscribe(nh_, cfg_.lidarscan_topic, 10);
-  sub_visual_cost_sync_.subscribe(nh_, "/visual_cost_map", 10);
-  sync_ = std::make_unique<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(10), sub_lidarscan_sync_, sub_visual_cost_sync_);
+  sub_lidarscan_sync_.subscribe(nh_, cfg_.lidarscan_topic, 100);
+  sub_visual_cost_sync_.subscribe(nh_, "/visual_cost_map", 100);
+  sync_ = std::make_unique<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(100), sub_lidarscan_sync_, sub_visual_cost_sync_);
   sync_->registerCallback(boost::bind(&LabelGenerationNode::sensorSyncCallback, this, _1, _2));
 
   // [new] IMU subscriber for soft-label generation
@@ -169,35 +169,44 @@ void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2Const
     frame_id_.sensor = scan_msg->header.frame_id;
     pose_update_timer_.start();
     map_publish_timer_.start();
-    std::cout << "\033[1;32m[lesta_ros::LabelGenerationNode]: Pointcloud & Image Received! "
-              << "Use fusion for label generation... \033[0m\n";
+    std::cout << "\033[1;32m[lesta_ros]: Pointcloud & Image Received! Fusion started...\033[0m\n";
   }
 
   geometry_msgs::TransformStamped sensor2base, base2map;
   if (!tf_.lookupTransform(frame_id_.robot, frame_id_.sensor, sensor2base) ||
       !tf_.lookupTransform(frame_id_.map, frame_id_.robot, base2map)) {
+    ROS_WARN_THROTTLE(1.0, "[LabelGenerationNode] 等待 TF 树对齐..."); // 【增加警告，防静默挂掉】
     return;
   }
 
-  // 解析图像
   cv_bridge::CvImagePtr cv_ptr;
   try {
     cv_ptr = cv_bridge::toCvCopy(cost_msg, sensor_msgs::image_encodings::TYPE_32FC1);
   } catch (cv_bridge::Exception& e) { 
+    ROS_ERROR("[LabelGenerationNode] cv_bridge 异常: %s", e.what()); // 【增加报错】
     return; 
   }
 
-  // 点云转 PCL
   auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
   pcl::fromROSMsg(*scan_msg, *scan_raw);
   
+  // 这里的 scan_preprocessed 是被转换到 Map 全局坐标系下的点云
   auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
   if (!scan_preprocessed) return;
 
-  // 将图像代价着色注入到 HeightMap
-  mapper_->integrateVisualCost(scan_preprocessed, cv_ptr->image);
+  // 【核心新增逻辑】：计算 Map 到 Base 的逆变换矩阵，供相机投影使用
+  Eigen::Quaternionf q(base2map.transform.rotation.w, base2map.transform.rotation.x,
+                       base2map.transform.rotation.y, base2map.transform.rotation.z);
+  Eigen::Vector3f t(base2map.transform.translation.x, base2map.transform.translation.y,
+                    base2map.transform.translation.z);
+  Eigen::Matrix4f T_base2map = Eigen::Matrix4f::Identity();
+  T_base2map.block<3,3>(0,0) = q.toRotationMatrix();
+  T_base2map.block<3,1>(0,3) = t;
+  Eigen::Matrix4f T_map_to_base = T_base2map.inverse();
 
-  // 后续提取逻辑
+  // 将 T_map_to_base 传入，以便在 C++ 底层把点云拉回车体坐标系进行投影
+  mapper_->integrateVisualCost(scan_preprocessed, cv_ptr->image, T_map_to_base);
+
   auto sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
   Eigen::Vector3f sensor_position3d(sensor2map.transform.translation.x,
                                     sensor2map.transform.translation.y,

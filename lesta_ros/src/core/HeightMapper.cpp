@@ -236,69 +236,68 @@ HeightMapper::raycasting<Color>(const Eigen::Vector3f &sensorOrigin,
                                 const typename pcl::PointCloud<Color>::Ptr &cloud);
 // [new]
 // ============================================================================
-void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_base,
-                                       const cv::Mat& visual_cost_img) {
-  if (cloud_base->empty()) return;
+void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_map,
+                                       const cv::Mat& visual_cost_img,
+                                       const Eigen::Matrix4f& T_map_to_base) {
+  if (cloud_map->empty()) return;
 
-  // 1. initialize rellis-3d camera intrinsics K
+  // 1. RELLIS-3D 相机内参保持不变
   cv::Mat K_intrinsic = cv::Mat::zeros(3,3, CV_64F);
-  K_intrinsic.at<double>(0,0) = 2813.643275; // fx
-  K_intrinsic.at<double>(1,1) = 2808.326079; // fy
-  K_intrinsic.at<double>(0,2) = 969.285772;       // cx
-  K_intrinsic.at<double>(1,2) = 624.049972;       // cy
+  K_intrinsic.at<double>(0,0) = 2813.643275; 
+  K_intrinsic.at<double>(1,1) = 2808.326079; 
+  K_intrinsic.at<double>(0,2) = 969.285772;       
+  K_intrinsic.at<double>(1,2) = 624.049972;       
   K_intrinsic.at<double>(2,2) = 1.0;
 
-  // 2. initialize Rellis-3d lidar-camera extrinsics matrix
-  Eigen::Quaternionf q(-0.50507811, 0.51206185, 0.49024953, -0.49228464); // (w, x, y, z)
+  // 2. RELLIS-3D 雷达-相机外参保持不变
+  Eigen::Quaternionf q(-0.50507811, 0.51206185, 0.49024953, -0.49228464);
   Eigen::Vector3f t(-0.13165462, 0.03870398, -0.17253834);
-
   Eigen::Matrix4f RT = Eigen::Matrix4f::Identity();
   RT.block<3, 3>(0, 0) = q.toRotationMatrix();
   RT.block<3, 1>(0, 3) = t;
-  
-  // acording to the Rellis-3d dataset, we need the inverse transform from base to camera
   Eigen::Matrix4f T_base_to_cam = RT.inverse();
 
-  // ensure GridMap has the visual cost layer, initialized to 0.0 (absolute flat/safe)
+  // 确保地图包含 cost 图层
   if(!map_.exists(lesta::layers::Visual::COST)) {
-    map_.addLayer(lesta::layers::Visual::COST, 0.0); 
+    map_.addLayer(lesta::layers::Visual::COST, std::nanf("")); // 默认设为 NaN 更好，避免误判为 0(平坦)
   }
 
-  // 3. 遍历当前帧雷达点云 (已转到 Base 系)
-  for (const auto& pt : cloud_base->points) {
+  // 3. 遍历当前帧点云 (注意：此时 pt 是 Map 全局系下的坐标！)
+  for (const auto& pt_map : cloud_map->points) {
     
-    if (std::abs(pt.x) < 0.1 && std::abs(pt.y) <0.1) continue;
+    // 【修改点A】先将 Map 系点转换回 Base 系，才能给相机用
+    Eigen::Vector4f p_m(pt_map.x, pt_map.y, pt_map.z, 1.0);
+    Eigen::Vector4f p_base = T_map_to_base * p_m;
 
-    // 将 LiDAR 系下的点转换到相机坐标系  
-    Eigen::Vector4f p_l(pt.x, pt.y, pt.z, 1.0);
-    Eigen::Vector4f p_c = T_base_to_cam * p_l;
+    // 在 Base 系下剔除雷达近处死角的点
+    if (std::abs(p_base.x()) < 0.1 && std::abs(p_base.y()) < 0.1) continue;
+
+    // 将 Base 系下的点转换到相机坐标系  
+    Eigen::Vector4f p_c = T_base_to_cam * p_base;
 
     // 剔除相机后方的点
     if (p_c.z() <= 0.0) continue;
 
-    // 利用 RELLIS-3D 相机内参投影到像素平面:
+    // 投影到像素平面
     double u = (K_intrinsic.at<double>(0,0) * p_c.x() + K_intrinsic.at<double>(0,2) * p_c.z()) / p_c.z();
     double v = (K_intrinsic.at<double>(1,1) * p_c.y() + K_intrinsic.at<double>(1,2) * p_c.z()) / p_c.z();
 
     int px = std::round(u);
     int py = std::round(v);
 
-    // 4. 检查是否在图像有效视野范围内
+    // 4. 检查是否在图像视野内并更新地图
     if (px >= 0 && px < visual_cost_img.cols && py >= 0 && py < visual_cost_img.rows) {
-      
-      // 采样对应的视觉代价
       float cost = visual_cost_img.at<float>(py, px);
 
-      // 4. 将代价记录到对应的 2.5D GridMap 栅格中
-      grid_map::Position position(pt.x, pt.y);
+      // 【修改点B】写回栅格时，必须使用原始的 Map 系坐标 pt_map !
+      grid_map::Position position(pt_map.x, pt_map.y);
       grid_map::Index index;
       
-      // 只有当点落在当前地图边界内时才更新
       if (map_.getIndex(position, index)) {
-        // 保守更新策略：如果同一个栅格落入多个点，取最大的 visual_cost
         float current_cost = map_.at(lesta::layers::Visual::COST, index);
+        // 保守策略：同一个栅格被多个点击中时，保留危险系数 (cost) 最高的
         if (std::isnan(current_cost) || cost > current_cost) {
-            map_.at(layers::Visual::COST, index) = cost;
+            map_.at(lesta::layers::Visual::COST, index) = cost;
         }
       }
     }
