@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../pylesta')))
 import rospy
 import cv2
 import torch
@@ -8,7 +9,6 @@ from cv_bridge import CvBridge
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../pylesta'))
 from lesta.core.models.vision_cost_net import MobileNetV3CostNet
 
 class VisualCostInferNode:
