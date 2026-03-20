@@ -13,13 +13,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Start training on: {device}")
 
-    # 1. 实例化数据集 (路径需根据您处理好的 RELLIS-3D 数据集替换)
+    # 1. 实例化数据集
     train_dataset = RellisVisionDataset(
-        image_dir='/path/to/rellis/train/images',
-        mask_dir='/path/to/rellis/train/sparse_masks'
+        image_dir='/home/whr/Data/dataset/00000/rellis/train/images',       # 【修改这里】
+        mask_dir='/home/whr/Data/dataset/00000/rellis/train/sparse_masks'   # 【修改这里】
     )
     # 增加 num_workers 提升读取速度
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=4)
 
     # 2. 实例化 MobileNetV3 骨干网络
     model = MobileNetV3CostNet(pretrained=True).to(device)
