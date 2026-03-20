@@ -22,7 +22,6 @@ cv2.setNumThreads(0)  # 禁止 OpenCV 使用多线程，避免与 PyTorch DataLo
 from pylesta.lesta.core.models.vision_cost_net import MobileNetV3CostNet
 from pylesta.lesta.core.loss_fns.masked_loss import MaskedSmoothL1Loss
 from pylesta.lesta.core.datasets.pcd_dataset.vision_dataset.dataset import RellisVisionDataset
-from torchvision.models import MobileNet_V3_Large_Weights
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -34,10 +33,10 @@ def main():
         mask_dir='/home/whr/Data/dataset/00000/rellis/train/sparse_masks'   # 【修改这里】
     )
     # 增加 num_workers 提升读取速度
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=4)
 
     # 2. 实例化 MobileNetV3 骨干网络
-    model = MobileNetV3CostNet(weights=MobileNet_V3_Large_Weights.DEFAULT).to(device)
+    model = MobileNetV3CostNet(pretrained=True).to(device)
     criterion = MaskedSmoothL1Loss(ignore_index=-1.0)
     optimizer = optim.Adam(model.parameters(), lr=2e-4, weight_decay=1e-5)
 
