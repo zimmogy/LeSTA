@@ -12,6 +12,7 @@ os.environ["MKL_NUM_THREADS"] = "1"      # 针对 Intel MKL
 os.environ["NUMEXPR_NUM_THREADS"] = "1"  # 针对 NumExpr
 
 import torch
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
@@ -52,6 +53,19 @@ def main():
             
             optimizer.zero_grad()
             preds = model(images)
+
+            # ====================================
+            # [修复] 强制将preds的尺寸对其到masks的村吃
+            # interpolate 需要四维，所以需要先升维再降维
+            # ====================================
+            if preds.shape != masks.shape:
+                # 升维: [8, 1216, 1920] -> [8, 1, 1216, 1920]
+                preds = preds.unsqueeze(1) 
+                # 双线性插值缩放到 1200x1920
+                preds = F.interpolate(preds, size=(masks.shape[1], masks.shape[2]), mode='bilinear', align_corners=False)
+                # 降维恢复: [8, 1, 1200, 1920] -> [8, 1200, 1920]
+                preds = preds.squeeze(1)
+            # ==========================================
             loss = criterion(preds, masks)
             
             # 跳过全图无轨迹的无效批次
