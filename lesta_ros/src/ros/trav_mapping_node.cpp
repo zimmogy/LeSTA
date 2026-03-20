@@ -112,11 +112,20 @@ void TravMappingNode::syncedCallback( const sensor_msgs::PointCloud2ConstPtr& sc
   if (!scan_preprocessed) {
       return;
   }
-  // 4. [core patch]:vision-geometry fusion
-  // call the function with hardcoded parameters in HeightMapper.cpp
-  // It will inject the visual_cost_img into the 2.5D GridMap's visual_cost layer.
 
-  mapper_->integrateVisualCost(scan_preprocessed, visual_cost_map);
+// 4. [core patch]:vision-geometry fusion
+  // 计算 Map 到 Base 的逆变换矩阵，供相机正确投影使用
+  Eigen::Quaternionf q(base2map.transform.rotation.w, base2map.transform.rotation.x,
+                       base2map.transform.rotation.y, base2map.transform.rotation.z);
+  Eigen::Vector3f t(base2map.transform.translation.x, base2map.transform.translation.y,
+                    base2map.transform.translation.z);
+  Eigen::Matrix4f T_base2map = Eigen::Matrix4f::Identity();
+  T_base2map.block<3,3>(0,0) = q.toRotationMatrix();
+  T_base2map.block<3,1>(0,3) = t;
+  Eigen::Matrix4f T_map_to_base = T_base2map.inverse();
+
+  // 传入这第 3 个参数 T_map_to_base
+  mapper_->integrateVisualCost(scan_preprocessed, visual_cost_map, T_map_to_base);
   
   // 5. continue original traversability mapping pipeline and featrue extraction 
   auto transform_sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
