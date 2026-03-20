@@ -2,12 +2,26 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../'))
 
+# ==========================================
+# 【新增】：解决 OpenBLAS 和 DataLoader 的多进程冲突
+# 必须放在 import torch 和其他科学计算库之前！
+# ==========================================
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"      # 针对 Intel MKL
+os.environ["NUMEXPR_NUM_THREADS"] = "1"  # 针对 NumExpr
+
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
+
+import cv2
+cv.setNumThreads(0)  # 禁止 OpenCV 使用多线程，避免与 PyTorch DataLoader 冲突
+
 from pylesta.lesta.core.models.vision_cost_net import MobileNetV3CostNet
 from pylesta.lesta.core.loss_fns.masked_loss import MaskedSmoothL1Loss
 from pylesta.lesta.core.datasets.pcd_dataset.vision_dataset.dataset import RellisVisionDataset
+
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
