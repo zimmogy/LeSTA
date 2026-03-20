@@ -13,7 +13,6 @@ from lesta.core.models.vision_cost_net import MobileNetV3CostNet
 class VisualCostInferNode:
     def __init__(self):
         rospy.init_node('visual_cost_mobilenet_node', anonymous=True)
-        self.bridge = CvBridge()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # 1. 加载定制的 MobileNetV3 模型
