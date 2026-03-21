@@ -28,7 +28,7 @@ MODEL:
   use_normalization_layer: *use_normalization_layer
 
 TRAINER:
-  device: "cpu" # ["cpu", "cuda"]
+  device: "cuda" # ["cpu", "cuda"]
 
   ## Self-training
   max_iterations: 3
