@@ -52,6 +52,8 @@ class PCDDataset(PCDDatasetBase):
 
         self.feature_vectors = self.points[:, feat_field_indices]
 
+        # [repair] 
+        self.feature_vectors = np.nan_to_num(self.feature_vectors, nan=0.0)
         # Calculate feature means and stds
         self._calc_normalization_constants()
 
@@ -103,7 +105,7 @@ class PCDDataset(PCDDatasetBase):
 
     def _get_labeled_indices(self):
         """Get indices of labeled points (labels 0 or 1)."""
-        return np.where((self.labels == 0) | (self.labels == 1))[0]
+        return np.where((self.labels >= 0) | (self.labels <= 1))[0]
 
     def _get_unlabeled_indices(self):
         """Get indices of unlabeled points (labels -1)."""
