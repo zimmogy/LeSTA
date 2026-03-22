@@ -255,25 +255,25 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
   Eigen::Matrix4f RT = Eigen::Matrix4f::Identity();
   RT.block<3, 3>(0, 0) = q.toRotationMatrix();
   RT.block<3, 1>(0, 3) = t;
-  Eigen::Matrix4f T_base_to_cam = RT.inverse();
+  Eigen::Matrix4f T_lidar_to_cam = RT.inverse();
 
   // 确保地图包含 cost 图层
   if(!map_.exists(lesta::layers::Visual::COST)) {
     map_.addLayer(lesta::layers::Visual::COST, std::nanf("")); // 默认设为 NaN 更好，避免误判为 0(平坦)
   }
 
-  // 3. 遍历当前帧点云 (注意：此时 pt 是 Map 全局系下的坐标！)
+  // 3. 遍历当前帧点云
   for (const auto& pt_map : cloud_map->points) {
     
-    // 【修改点A】先将 Map 系点转换回 Base 系，才能给相机用
+    // 【修改点A】先将 Map 系点转换回 LiDAR 系，才能给相机用
     Eigen::Vector4f p_m(pt_map.x, pt_map.y, pt_map.z, 1.0);
-    Eigen::Vector4f p_base = T_map_to_base * p_m;
+    Eigen::Vector4f p_sensor = T_map_to_sensor * p_m;
 
     // 在 Base 系下剔除雷达近处死角的点
-    if (std::abs(p_base.x()) < 0.1 && std::abs(p_base.y()) < 0.1) continue;
+    if (std::abs(p_sensor.x()) < 0.1 && std::abs(p_base.y()) < 0.1) continue;
 
-    // 将 Base 系下的点转换到相机坐标系  
-    Eigen::Vector4f p_c = T_base_to_cam * p_base;
+    // 将 LiDAR 系下的点转换到相机坐标系  
+    Eigen::Vector4f p_c = T_lidar_to_cam * p_sensor;
 
     // 剔除相机后方的点
     if (p_c.z() <= 0.0) continue;

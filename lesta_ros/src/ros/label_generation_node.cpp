@@ -193,20 +193,8 @@ void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2Const
   // 这里的 scan_preprocessed 是被转换到 Map 全局坐标系下的点云
   auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
   if (!scan_preprocessed) return;
-
-  // 【核心新增逻辑】：计算 Map 到 Base 的逆变换矩阵，供相机投影使用
-  Eigen::Quaternionf q(base2map.transform.rotation.w, base2map.transform.rotation.x,
-                       base2map.transform.rotation.y, base2map.transform.rotation.z);
-  Eigen::Vector3f t(base2map.transform.translation.x, base2map.transform.translation.y,
-                    base2map.transform.translation.z);
-  Eigen::Matrix4f T_base2map = Eigen::Matrix4f::Identity();
-  T_base2map.block<3,3>(0,0) = q.toRotationMatrix();
-  T_base2map.block<3,1>(0,3) = t;
-  Eigen::Matrix4f T_map_to_base = T_base2map.inverse();
-
-  // 将 T_map_to_base 传入，以便在 C++ 底层把点云拉回车体坐标系进行投影
-  mapper_->integrateVisualCost(scan_preprocessed, cv_ptr->image, T_map_to_base);
-
+  
+  // [时序调换]:先进行terrainmapping见图，再进行视觉融合
   auto sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
   Eigen::Vector3f sensor_position3d(sensor2map.transform.translation.x,
                                     sensor2map.transform.translation.y,
@@ -215,6 +203,20 @@ void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2Const
   auto measured_indices = terrainMapping(scan_preprocessed, sensor_position3d);
   feature_extractor_->extractFeatures(mapper_->getHeightMap(), measured_indices);
   label_generator_->addObstacles(mapper_->getHeightMap(), measured_indices);
+
+  // 【核心新增逻辑】：计算 Map 到 SENSOR(LiDAR) 的逆变换矩阵，供相机投影使用
+  Eigen::Quaternionf q(sensor2map.transform.rotation.w, sensor2map.transform.rotation.x,
+                       sensor2map.transform.rotation.y, sensor2map.transform.rotation.z);
+  Eigen::Vector3f t(sensor2map.transform.translation.x, sensor2map.transform.translation.y,
+                    sensor2map.transform.translation.z);
+  Eigen::Matrix4f T_sensor2map = Eigen::Matrix4f::Identity();
+  T_sensor2map.block<3,3>(0,0) = q.toRotationMatrix();
+  T_sensor2map.block<3,1>(0,3) = t;
+  Eigen::Matrix4f T_map_to_sensor = T_sensor2map.inverse();
+
+  // 将 T_map_to_sensor 传入，以便在 C++ 底层把点云拉回车体坐标系进行投影
+  mapper_->integrateVisualCost(scan_preprocessed, cv_ptr->image, T_map_to_sensor);
+
 }
 
 pcl::PointCloud<Laser>::Ptr LabelGenerationNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,

@@ -86,7 +86,7 @@ public:
   // [new] Integration function of visual cost
   void integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_map,
                           const cv::Mat& visual_cost_img,
-                          const Eigen::Matrix4f& T_map_to_base);
+                          const Eigen::Matrix4f& T_map_to_sensor);
 private:
   void initMap();
   void initHeightEstimator();
