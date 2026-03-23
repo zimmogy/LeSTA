@@ -238,7 +238,7 @@ HeightMapper::raycasting<Color>(const Eigen::Vector3f &sensorOrigin,
 // ============================================================================
 void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_map,
                                        const cv::Mat& visual_cost_img,
-                                       const Eigen::Matrix4f& T_map_to_base) {
+                                       const Eigen::Matrix4f& T_map_to_sensor) {
   if (cloud_map->empty()) return;
 
   // 1. RELLIS-3D 相机内参保持不变
@@ -269,8 +269,8 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
     Eigen::Vector4f p_m(pt_map.x, pt_map.y, pt_map.z, 1.0);
     Eigen::Vector4f p_sensor = T_map_to_sensor * p_m;
 
-    // 在 Base 系下剔除雷达近处死角的点
-    if (std::abs(p_sensor.x()) < 0.1 && std::abs(p_base.y()) < 0.1) continue;
+    // 在 sensor 系下剔除雷达近处死角的点
+    if (std::abs(p_sensor.x()) < 0.1 && std::abs(p_sensor.y()) < 0.1) continue;
 
     // 将 LiDAR 系下的点转换到相机坐标系  
     Eigen::Vector4f p_c = T_lidar_to_cam * p_sensor;
