@@ -224,7 +224,7 @@ void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2Const
   // 将定时器中的足迹逻辑搬到此处，实现100%强同步
   // 利用本帧现成的 base2map 获取车体在 map 系下的 x,y 坐标
 
-  grid::map::Position robot_position(base2map.transform.translation.x,
+  grid_map::Position robot_position(base2map.transform.translation.x,
                                 base2map.transform.translation.y);
   // [new] 计算软标签分数并传入 addFootprint
   float current_score = calculateSoftLabel();
