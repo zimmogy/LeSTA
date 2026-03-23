@@ -106,11 +106,14 @@ void LabelGenerationNode::initializeTimers() {
   ros::Duration pose_update_dt(1.0 / cfg_.pose_update_rate);
   ros::Duration map_pub_dt(1.0 / cfg_.map_pub_rate);
 
+  // [new]注释掉足迹定时器，改为在同步回调里直接调用
+  /*
   pose_update_timer_ = nh_.createTimer(pose_update_dt,
                                        &LabelGenerationNode::recordFootprints,
                                        this,
                                        false,
                                        false);
+   */
   map_publish_timer_ = nh_.createTimer(map_pub_dt,
                                        &LabelGenerationNode::publishLabelMap,
                                        this,
@@ -167,7 +170,8 @@ void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2Const
   if (!lidarscan_received_) { 
     lidarscan_received_ = true;
     frame_id_.sensor = scan_msg->header.frame_id;
-    pose_update_timer_.start();
+    // 注释掉足迹定时器的启动
+    // pose_update_timer_.start();
     map_publish_timer_.start();
     std::cout << "\033[1;32m[lesta_ros]: Pointcloud & Image Received! Fusion started...\033[0m\n";
   }
@@ -216,6 +220,15 @@ void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2Const
 
   // 将 T_map_to_sensor 传入，以便在 C++ 底层把点云拉回车体坐标系进行投影
   mapper_->integrateVisualCost(scan_preprocessed, cv_ptr->image, T_map_to_sensor);
+
+  // 将定时器中的足迹逻辑搬到此处，实现100%强同步
+  // 利用本帧现成的 base2map 获取车体在 map 系下的 x,y 坐标
+
+  grid::map::Position robot_position(base2map.transform.translation.x,
+                                base2map.transform.translation.y);
+  // [new] 计算软标签分数并传入 addFootprint
+  float current_score = calculateSoftLabel();
+  label_generator_->addFootprint(mapper_->getHeightMap(), robot_position, current_score);
 
 }
 
