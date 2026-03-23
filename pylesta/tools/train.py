@@ -1,4 +1,9 @@
 import argparse
+import sys
+import os
+
+# 强制将 train.py 的父目录 (即 pylesta) 加入环境变量的最高优先级
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from utils.param import yaml
 from utils.pytorch import seed, machine
