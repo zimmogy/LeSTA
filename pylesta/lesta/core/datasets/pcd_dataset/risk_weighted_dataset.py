@@ -31,6 +31,21 @@ class RiskWeightedPCDDataset(PCDDataset):
         sample['risk_weights'] = self.risk_weights[idx]
 
         return sample
+    
+    # =================== 添加以下这段代码 ==================
+    def add_data(self, features, labels):
+        """
+        重写父类的 add_data 方法。
+        在添加伪标签数据后，必须重新计算风险权重数组的长度和数值，防止越界。
+        """
+        # 1. 调用父类方法，更新 self.feature_vectors 和 self.labels
+        super().add_data(features, labels)
+        
+        # 2. 重新计算所有样本的风险和权重 (数组长度会自动对齐到新的总样本数)
+        self._calc_intrinsic_risks()
+        self._calc_cumulative_risks()
+        self._calc_risk_weights()     
+    # ====================================================
 
     def _calc_intrinsic_risks(self):
         """Calculate intrinsic risk of the dataset."""
