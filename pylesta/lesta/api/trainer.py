@@ -146,18 +146,6 @@ class LestaTrainer:
             labels = batch['label'].to(self.device)
             risk_weights = batch['risk_weights'].to(self.device)
             
-            # ==========================================
-            #【取证代码】：提取当前 batch 中所有不重复的标签值
-            # ==========================================
-            unique_labels = torch.unique(labels)
-            print(f"\n[🚨 DEBUG 抓包] Batch {batch_idx} 包含的标签种类: {unique_labels.tolist()}")
-            
-            # 如果抓到 -1.0，直接强制中断程序，保留犯罪现场！
-            if -1.0 in unique_labels.tolist():
-                print("💥 致命实锤：发现 -1.0 标签被喂给了有监督训练！训练已终止。")
-                exit()
-            # ==========================================
-
             # Forward pass
             outputs = self.network(inputs).squeeze()
             loss = self.criterion(outputs, labels, risk_weights)
