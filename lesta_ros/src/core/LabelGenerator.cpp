@@ -58,9 +58,36 @@ void LabelGenerator::addObstacles(HeightMap &map,
     float visual_cost = map.at(layers::Visual::COST, index);
 
     // ======================================
-    // Hybrid Pseudo-labeling Strategy
+    // Hybrid Pseudo-labeling Strategy （Modified - 双阈值截断）
     // ======================================
-
+    // [version 0.2] Fatal Threshold
+    // 1. 绝对致死物理极限 (Fatal Threshold): 一票否决
+    // 作用：兜底 SLAM 定位漂移，防止将历史足迹错误投影到真正的悬崖或高墙上
+    if (step > cfg.fatal_step_threshold) {
+      map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::NON_TRAVERSABLE;
+    }
+    // 2. 真实足迹最高优先级 (Soft Positive/Negative):
+    // 作用：解决高草、软泥等“可变形障碍物”带来的几何雷达误判。只要真开过去了，绝对相信本体 IMU
+    else if (has_footprint) {
+      // nothing todo, keep the historical score calculated by IMU
+      continue; 
+    }
+    // 3. 常规几何障碍 (Hard-negative):
+    // 作用：处理没有轨迹覆盖的常规障碍物（如 0.3m 以上的石头或台阶）
+    else if (step > cfg.max_traversable_step) {
+      map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::NON_TRAVERSABLE;
+    }
+    // 4. 严苛的绝对安全奖励 (Hard-positive): 视觉与几何双重认证
+    // 作用：极其平坦且视觉认为安全的区域，打上 1.0 的安全标签
+    else if (step < 0.03 && roughness < 0.01 && !std::isnan(visual_cost) && visual_cost < cfg.max_traversable_visual_cost) {
+      map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::TRAVERSABLE;
+    }
+    // 5. 其他未知区域 (Unknown):
+    // 作用：留白，交由后续的 MLP 网络去泛化
+    else {
+      map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::UNKNOWN;
+    }
+    /* version 0.1
     // 1. Hard-negative sample from absolute physical obbstacle
     if (step > cfg.max_traversable_step) {
       map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::NON_TRAVERSABLE;
@@ -78,7 +105,7 @@ void LabelGenerator::addObstacles(HeightMap &map,
     else {
       map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::UNKNOWN;
     }
-    
+    */
     // if (map.at(layers::Feature::STEP, index) > cfg.max_traversable_step)
     //   map.at(layers::Label::TRAVERSABILITY, index) =
     //       (float)Traversability::NON_TRAVERSABLE;

@@ -21,6 +21,7 @@ public:
     double footprint_radius;
     double max_traversable_step;
     double max_traversable_visual_cost; // New parameter for visual cost threshold
+    double fatal_step_threshold; // New parameter for fatal step 
   } cfg;
 
   using Traversability = lesta_types::Traversability;

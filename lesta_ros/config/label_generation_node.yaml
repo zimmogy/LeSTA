@@ -24,3 +24,4 @@ label_generator:
   max_traversable_step: 0.3        # [meter], Step height difference (higher = negative label)
   # [new] Vision-priori safety thresholds
   max_traversable_visual_cost: 0.3
+  fatal_step_threshold: 0.6
