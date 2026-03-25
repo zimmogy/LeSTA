@@ -50,6 +50,14 @@ def main():
         for batch_idx, (images, masks) in enumerate(train_loader):
             images, masks = images.to(device), masks.to(device)
             
+            # ===================================
+            # 【新增修改】：将“通行度”标签反转为“风险代价”
+            # 注意：必须跳过背景空白区域的 ignore_index(-1.0)
+            # ===================================
+            valid_pixels = (masks != -1.0)
+            masks[valid_pixels] = 1.0 - masks[valid_pixels]
+            # ===================================
+
             optimizer.zero_grad()
             preds = model(images)
 
