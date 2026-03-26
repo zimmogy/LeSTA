@@ -14,6 +14,7 @@
 // =============================
 // [new] IMU soft-label head file
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/Image.h>
 #include <deque>
 #include <mutex>
 #include <cmath>
