@@ -310,6 +310,7 @@ void TravPredictionNode::publishTravMap(const HeightMap &map) {
   layers.push_back(lesta::layers::Feature::SLOPE);
   layers.push_back(lesta::layers::Feature::ROUGHNESS);
   layers.push_back(lesta::layers::Feature::CURVATURE);
+  layers.push_back(lesta::layers::Visual::COST);
   layers.push_back(lesta::layers::Feature::NORMAL_X);
   layers.push_back(lesta::layers::Feature::NORMAL_Y);
   layers.push_back(lesta::layers::Feature::NORMAL_Z);
