@@ -47,9 +47,9 @@ private:
   void publishMaps(const ros::TimerEvent &event);
 
   pcl::PointCloud<Laser>::Ptr
-  preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
-                 const geometry_msgs::TransformStamped &sensor2base,
-                 const geometry_msgs::TransformStamped &base2map);
+pcl::PointCloud<Laser>::Ptr
+preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
+               const geometry_msgs::TransformStamped &sensor2map);
   std::vector<grid_map::Index>
   terrainMapping(const pcl::PointCloud<Laser>::Ptr &cloud_input,
                  const Eigen::Vector3f &sensor_origin);

@@ -86,68 +86,58 @@ void TravMappingNode::initializePubSubs() {
 // [new] achieve new synced callback function for lidar scan and visual cost map
 // =================================
 void TravMappingNode::syncedCallback( const sensor_msgs::PointCloud2ConstPtr& scan_msg, 
-                                            const sensor_msgs::ImageConstPtr& cost_img_msg) {
-  // 1. get extrinsic parameters of TF
-  geometry_msgs::TransformStamped sensor2base, base2map;
-  if (!tf_.lookupTransform(frame_id_.robot, frame_id_.sensor, sensor2base) ||
-      !tf_.lookupTransform(frame_id_.map, frame_id_.robot, base2map)){
+                                      const sensor_msgs::ImageConstPtr& cost_img_msg) {
+  // 1. 直接获取 sensor 到 map 的 TF 变换 (绕过 base)
+  geometry_msgs::TransformStamped sensor2map;
+  if (!tf_.lookupTransform(frame_id_.map, frame_id_.sensor, sensor2map)){
     ROS_WARN("Waiting for TF transforms...");
     return;
   }
+  
   // 2. convert ROS msg to OpenCV Mat
   cv_bridge::CvImagePtr cv_ptr;
   try {
-    // assume the visual cost map is published as a single-channel 32-bit image
     cv_ptr = cv_bridge::toCvCopy(cost_img_msg, sensor_msgs::image_encodings::TYPE_32FC1);
   } catch (cv_bridge::Exception& e) {
     ROS_ERROR("cv_bridge exception: %s", e.what());
     return;
-}  
+  }  
   cv::Mat visual_cost_map = cv_ptr->image;
 
-  // 3. preprocess the cloudpoint
+  // 3. preprocess the cloudpoint (只传入 sensor2map)
   auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
   pcl::fromROSMsg(*scan_msg, *scan_raw);
-  auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
+  auto scan_preprocessed = preprocessScan(scan_raw, sensor2map);
   if (!scan_preprocessed) {
       return;
   }
 
-// 4. [core patch]:vision-geometry fusion
-  // 计算 Map 到 Base 的逆变换矩阵，供相机正确投影使用
-  Eigen::Quaternionf q(base2map.transform.rotation.w, base2map.transform.rotation.x,
-                       base2map.transform.rotation.y, base2map.transform.rotation.z);
-  Eigen::Vector3f t(base2map.transform.translation.x, base2map.transform.translation.y,
-                    base2map.transform.translation.z);
-  Eigen::Matrix4f T_base2map = Eigen::Matrix4f::Identity();
-  T_base2map.block<3,3>(0,0) = q.toRotationMatrix();
-  T_base2map.block<3,1>(0,3) = t;
-  Eigen::Matrix4f T_map_to_base = T_base2map.inverse();
+  // 4. [core patch]: vision-geometry fusion
+  // 直接计算 Sensor 到 Map 的变换矩阵，并求逆得到 Map 到 Sensor 的变换
+  Eigen::Quaternionf q(sensor2map.transform.rotation.w, sensor2map.transform.rotation.x,
+                       sensor2map.transform.rotation.y, sensor2map.transform.rotation.z);
+  Eigen::Vector3f t(sensor2map.transform.translation.x, sensor2map.transform.translation.y,
+                    sensor2map.transform.translation.z);
+  Eigen::Matrix4f T_sensor2map = Eigen::Matrix4f::Identity();
+  T_sensor2map.block<3,3>(0,0) = q.toRotationMatrix();
+  T_sensor2map.block<3,1>(0,3) = t;
+  
+  Eigen::Matrix4f T_map_to_sensor = T_sensor2map.inverse();
 
-  // 传入这第 3 个参数 T_map_to_base
+  // 传入 T_map_to_sensor
   mapper_->integrateVisualCost(scan_preprocessed, visual_cost_map, T_map_to_sensor);
   
-  // 5. continue original traversability mapping pipeline and featrue extraction 
-  auto transform_sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
-  Eigen::Vector3f sensor_origin(transform_sensor2map.transform.translation.x,
-                                transform_sensor2map.transform.translation.y,
-                                transform_sensor2map.transform.translation.z);
+  // 5. continue original traversability mapping pipeline and feature extraction 
+  // 直接从 sensor2map 中提取传感器原点位置
+  Eigen::Vector3f sensor_origin(sensor2map.transform.translation.x,
+                                sensor2map.transform.translation.y,
+                                sensor2map.transform.translation.z);
+                                
   auto measured_indices = terrainMapping(scan_preprocessed, sensor_origin);
   feature_extractor_->extractFeatures(mapper_->getHeightMap(), measured_indices);
   trav_mapper_->traversabilityMapping(mapper_->getHeightMap(), measured_indices);
   map_publish_timer_.start(); // start publishing maps
 }
-// =================================
-void TravMappingNode::initializeServices() {
-  //
-}
-
-void TravMappingNode::initializeTimers() {
-  ros::Duration map_pub_dt(1.0 / cfg_.map_pub_rate);
-  map_publish_timer_ =
-      nh_.createTimer(map_pub_dt, &TravMappingNode::publishMaps, this, false, false);
-}
-
 void TravMappingNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &msg) {
 
   if (!lidarscan_received_) {
@@ -158,26 +148,24 @@ void TravMappingNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &msg) 
               << "\033[0m\n";
   }
 
-  // 1. Get transform matrix using tf tree
-  geometry_msgs::TransformStamped sensor2base, base2map;
-  if (!tf_.lookupTransform(frame_id_.robot, frame_id_.sensor, sensor2base) ||
-      !tf_.lookupTransform(frame_id_.map, frame_id_.robot, base2map))
+  // 1. 直接获取 sensor 到 map 的 TF 变换
+  geometry_msgs::TransformStamped sensor2map;
+  if (!tf_.lookupTransform(frame_id_.map, frame_id_.sensor, sensor2map))
     return;
 
   // 2. Convert ROS msg to PCL data
   auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
   pcl::moveFromROSMsg(*msg, *scan_raw);
 
-  // 3. Preprocess scan data: ready for terrain mapping
-  auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
+  // 3. Preprocess scan data
+  auto scan_preprocessed = preprocessScan(scan_raw, sensor2map);
   if (!scan_preprocessed)
     return;
 
   // 4. Terrain mapping
-  auto transform_sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
-  Eigen::Vector3f sensor_origin(transform_sensor2map.transform.translation.x,
-                                transform_sensor2map.transform.translation.y,
-                                transform_sensor2map.transform.translation.z);
+  Eigen::Vector3f sensor_origin(sensor2map.transform.translation.x,
+                                sensor2map.transform.translation.y,
+                                sensor2map.transform.translation.z);
   auto measured_indices = terrainMapping(scan_preprocessed, sensor_origin);
 
   // 5. Feature extraction
@@ -191,20 +179,16 @@ void TravMappingNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &msg) 
 }
 pcl::PointCloud<Laser>::Ptr
 TravMappingNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
-                                const geometry_msgs::TransformStamped &sensor2base,
-                                const geometry_msgs::TransformStamped &base2map) {
-  // 1. Transform pointcloud to base frame
-  auto scan_base = PointCloudOps::applyTransform<Laser>(scan_raw, sensor2base);
-
-  // For visualization: downsample pointcloud
-  auto scan_downsampled = PointCloudOps::downsampleVoxel<Laser>(scan_base, 0.4);
+                                const geometry_msgs::TransformStamped &sensor2map) {
+  // 1. 在传感器坐标系下进行降采样，用于可视化
+  auto scan_downsampled = PointCloudOps::downsampleVoxel<Laser>(scan_raw, 0.4);
   publishDownsampledScan(scan_downsampled);
 
-  // 2. Fast height filtering
+  // 2. Fast height filtering (直接作用于原始传感器点云)
   auto scan_preprocessed = boost::make_shared<pcl::PointCloud<Laser>>();
-  mapper_->fastHeightFilter(scan_base, scan_preprocessed);
+  mapper_->fastHeightFilter(scan_raw, scan_preprocessed);
 
-  // 3. Pass through filter
+  // 3. Pass through filter (在传感器坐标系下裁剪指定范围的点)
   scan_preprocessed = PointCloudOps::passThrough<Laser>(scan_preprocessed,
                                                         "x",
                                                         -cfg_.scan_filter_range,
@@ -222,8 +206,8 @@ TravMappingNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
   // 4. Publish filtered scan
   publishFilteredScan(scan_preprocessed);
 
-  // 5. Transform pointcloud to map frame
-  scan_preprocessed = PointCloudOps::applyTransform<Laser>(scan_preprocessed, base2map);
+  // 5. 直接将点云从 sensor 坐标系转换到 map 坐标系
+  scan_preprocessed = PointCloudOps::applyTransform<Laser>(scan_preprocessed, sensor2map);
 
   if (scan_preprocessed->empty())
     return nullptr;
