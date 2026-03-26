@@ -125,7 +125,7 @@ void TravMappingNode::syncedCallback( const sensor_msgs::PointCloud2ConstPtr& sc
   Eigen::Matrix4f T_map_to_base = T_base2map.inverse();
 
   // 传入这第 3 个参数 T_map_to_base
-  mapper_->integrateVisualCost(scan_preprocessed, visual_cost_map, T_map_to_base);
+  mapper_->integrateVisualCost(scan_preprocessed, visual_cost_map, T_map_to_sensor);
   
   // 5. continue original traversability mapping pipeline and featrue extraction 
   auto transform_sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
@@ -294,6 +294,7 @@ void TravMappingNode::publishTravMap(const HeightMap &heightmap,
                                      lesta::layers::Feature::SLOPE,
                                      lesta::layers::Feature::ROUGHNESS,
                                      lesta::layers::Feature::CURVATURE,
+                                     lesta::layers::Visual::COST,
                                      lesta::layers::Traversability::PROBABILITY,
                                      lesta::layers::Traversability::BINARY,
                                      lesta::layers::Traversability::LOG_ODDS,

@@ -87,7 +87,7 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
   std::vector<grid_map::Index> valid_indices;
   features.reserve(measured_indices.size());
   valid_indices.reserve(measured_indices.size());
-
+/* 原来版本的检查特征维度是否齐备
   for (const auto &index : measured_indices) {
     // Check if all required features are valid
     bool all_feature_values_valid = true;
@@ -99,16 +99,35 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
     }
     if (!all_feature_values_valid)
       continue;
+*/
+  // 修改特征填充逻辑，在视野盲区采用后备机制，赋予盲区的visual_cost一个默认的惩罚值
+  // 使用剩下的4维几何特征进行推理
 
-    // Create feature vector with the correct dimension
+  for (const auto &index : measured_indices) {
+// Create feature vector with the correct dimension
     Eigen::VectorXf feature(cfg.feature_fields.size());
+    bool all_feature_values_valid = true;
 
-    // Fill feature vector based on configured fields
+    // 整合特征校验与赋值逻辑
     for (size_t i = 0; i < cfg.feature_fields.size(); i++) {
       const std::string &field_name = cfg.feature_fields[i];
-      feature(i) = map.at(featurefield_to_layer_[field_name], index);
+      
+      if (map.isEmptyAt(featurefield_to_layer_[field_name], index)) {
+        // [新增] 如果是视觉成本层缺失 (FOV盲区)，赋予默认中性值
+        if (field_name == layers::Visual::COST) {
+          feature(i) = 0.3f; // 注意：此默认值应与您训练网络时采用的 Masking 值一致
+        } else {
+          // 如果是几何特征缺失，则判定为无效网格
+          all_feature_values_valid = false;
+          break;
+        }
+      } else {
+        feature(i) = map.at(featurefield_to_layer_[field_name], index);
+      }
     }
 
+    if (!all_feature_values_valid)
+      continue;
     features.push_back(std::move(feature));
     valid_indices.push_back(index);
   }

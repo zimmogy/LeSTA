@@ -55,7 +55,11 @@ void LabelGenerator::addObstacles(HeightMap &map,
     bool has_footprint = std::abs(map.at(layers::Label::FOOTPRINT, index) - 1.0) < 1e-3;
     float step = map.at(layers::Feature::STEP, index);
     float roughness = map.at(layers::Feature::ROUGHNESS, index);  
-    float visual_cost = map.at(layers::Visual::COST, index);
+    // [新增] 安全地获取视觉代价
+    float visual_cost = std::numeric_limits<float>::quiet_NaN();
+    if (!map.isEmptyAt(layers::Visual::COST, index)) {
+        visual_cost = map.at(layers::Visual::COST, index);
+    }
 
     // ======================================
     // Hybrid Pseudo-labeling Strategy （Modified - 双阈值截断）
