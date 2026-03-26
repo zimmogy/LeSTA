@@ -19,7 +19,7 @@ height_mapper:
   max_height_threshold: 1.5          # [meter]
 
 traversability_network:
-  model_path: "$(env HOME)/Downloads/LeSTA_campus_road_libtorch.pt"
+  model_path: "/home/whr/Data/mlp_pt/epoch_best.pt"
   input_dimension: 5
   feature_fields:
     - step
