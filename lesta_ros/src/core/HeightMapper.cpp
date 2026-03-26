@@ -240,7 +240,11 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
                                        const cv::Mat& visual_cost_img,
                                        const Eigen::Matrix4f& T_map_to_sensor) {
   if (cloud_map->empty()) return;
-
+  // [新增]输出min_cost和max_cost用于debug
+  double min_cost, max_cost;
+  cv::minMaxLoc(visual_cost_img, &min_cost, &max_cost);
+  std::cout << "[Debug] Visual Cost Range -> Min: " << min_cost << ", Max: " << max_cost << std::endl;
+  // ----------------------------------
   // 1. RELLIS-3D 相机内参保持不变
   cv::Mat K_intrinsic = cv::Mat::zeros(3,3, CV_64F);
   K_intrinsic.at<double>(0,0) = 2813.643275; 
