@@ -147,6 +147,7 @@ void TravPredictionNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &ms
 // [new] 新增融合回调函数
 void TravPredictionNode::syncedCallback(const sensor_msgs::PointCloud2ConstPtr& scan_msg, 
                                         const sensor_msgs::ImageConstPtr& cost_img_msg) {
+  ROS_INFO("Data synchronized and callback triggered!");
   if (!lidarscan_received_) {
     lidarscan_received_ = true;
     frame_id_.sensor = scan_msg->header.frame_id;
