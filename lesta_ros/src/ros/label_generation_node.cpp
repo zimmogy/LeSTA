@@ -16,6 +16,7 @@
 #include <sensor_msgs/point_cloud2_iterator.h>
 #include <grid_map_ros/GridMapRosConverter.hpp>
 #include <ros/package.h>
+#include <opencv2/opencv.hpp>
 
 namespace lesta_ros {
 
@@ -165,50 +166,54 @@ void LabelGenerationNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &m
 pcl::PointCloud<Laser>::Ptr
 */
 // [new] Synchronized callback for LiDAR scan and visual cost map
+// [new] Synchronized callback for LiDAR scan and visual cost map
 void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2ConstPtr &scan_msg,
                                              const sensor_msgs::ImageConstPtr &cost_msg) {
   if (!lidarscan_received_) { 
     lidarscan_received_ = true;
     frame_id_.sensor = scan_msg->header.frame_id;
-    // 注释掉足迹定时器的启动
-    // pose_update_timer_.start();
+    // pose_update_timer_.start(); // 注释掉，使用强同步足迹
     map_publish_timer_.start();
-    std::cout << "\033[1;32m[lesta_ros]: Pointcloud & Image Received! Fusion started...\033[0m\n";
+    std::cout << "\033[1;32m[lesta_ros]: Pointcloud & Image Received! Data Generation started...\033[0m\n";
   }
 
   geometry_msgs::TransformStamped sensor2base, base2map;
   if (!tf_.lookupTransform(frame_id_.robot, frame_id_.sensor, sensor2base) ||
       !tf_.lookupTransform(frame_id_.map, frame_id_.robot, base2map)) {
-    ROS_WARN_THROTTLE(1.0, "[LabelGenerationNode] 等待 TF 树对齐..."); // 【增加警告，防静默挂掉】
+    ROS_WARN_THROTTLE(1.0, "[LabelGenerationNode] 等待 TF 树对齐..."); 
     return;
   }
 
-  cv_bridge::CvImagePtr cv_ptr;
-  try {
-    cv_ptr = cv_bridge::toCvCopy(cost_msg, sensor_msgs::image_encodings::TYPE_32FC1);
-  } catch (cv_bridge::Exception& e) { 
-    ROS_ERROR("[LabelGenerationNode] cv_bridge 异常: %s", e.what()); // 【增加报错】
+  // ==========================================================
+  // 【优化 1】：彻底移除 cv_bridge，使用裸指针内存映射防止 ROS 崩溃
+  // ==========================================================
+  if (cost_msg->encoding != "32FC1") {
+    ROS_ERROR("[LabelGenerationNode] 期待的视觉代价图编码为 '32FC1', 但收到 '%s'", cost_msg->encoding.c_str());
     return; 
   }
+  cv::Mat visual_cost_map(cost_msg->height, cost_msg->width, CV_32FC1,
+                          const_cast<uint8_t*>(&cost_msg->data[0]), cost_msg->step);
+  visual_cost_map = visual_cost_map.clone(); // 深拷贝
 
+  // 点云预处理
   auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
   pcl::fromROSMsg(*scan_msg, *scan_raw);
-  
-  // 这里的 scan_preprocessed 是被转换到 Map 全局坐标系下的点云
   auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
   if (!scan_preprocessed) return;
   
-  // [时序调换]:先进行terrainmapping见图，再进行视觉融合
   auto sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
   Eigen::Vector3f sensor_position3d(sensor2map.transform.translation.x,
                                     sensor2map.transform.translation.y,
                                     sensor2map.transform.translation.z);
   
+  // ==========================================================
+  // 【修复 2】：严格遵守 "建图 -> 写入视觉 -> 提取特征 -> 生成标签" 的时序
+  // ==========================================================
+  
+  // 第一步：地形建图
   auto measured_indices = terrainMapping(scan_preprocessed, sensor_position3d);
-  feature_extractor_->extractFeatures(mapper_->getHeightMap(), measured_indices);
-  label_generator_->addObstacles(mapper_->getHeightMap(), measured_indices);
 
-  // 【核心新增逻辑】：计算 Map 到 SENSOR(LiDAR) 的逆变换矩阵，供相机投影使用
+  // 第二步：将视觉代价投影并写入 2.5D 栅格 (使用正确的 T_map_to_sensor)
   Eigen::Quaternionf q(sensor2map.transform.rotation.w, sensor2map.transform.rotation.x,
                        sensor2map.transform.rotation.y, sensor2map.transform.rotation.z);
   Eigen::Vector3f t(sensor2map.transform.translation.x, sensor2map.transform.translation.y,
@@ -218,18 +223,19 @@ void LabelGenerationNode::sensorSyncCallback(const sensor_msgs::PointCloud2Const
   T_sensor2map.block<3,1>(0,3) = t;
   Eigen::Matrix4f T_map_to_sensor = T_sensor2map.inverse();
 
-  // 将 T_map_to_sensor 传入，以便在 C++ 底层把点云拉回车体坐标系进行投影
-  mapper_->integrateVisualCost(scan_preprocessed, cv_ptr->image, T_map_to_sensor);
+  mapper_->integrateVisualCost(scan_preprocessed, visual_cost_map, T_map_to_sensor);
 
-  // 将定时器中的足迹逻辑搬到此处，实现100%强同步
-  // 利用本帧现成的 base2map 获取车体在 map 系下的 x,y 坐标
+  // 第三步：提取包含视觉代价在内的所有特征
+  feature_extractor_->extractFeatures(mapper_->getHeightMap(), measured_indices);
+  
+  // 第四步：生成伪标签 (此时底层的 addObstacles 终于能读到视觉代价了！)
+  label_generator_->addObstacles(mapper_->getHeightMap(), measured_indices);
 
+  // 第五步：利用 IMU 计算足迹软标签 (强同步兜底)
   grid_map::Position robot_position(base2map.transform.translation.x,
-                                base2map.transform.translation.y);
-  // [new] 计算软标签分数并传入 addFootprint
+                                    base2map.transform.translation.y);
   float current_score = calculateSoftLabel();
   label_generator_->addFootprint(mapper_->getHeightMap(), robot_position, current_score);
-
 }
 
 pcl::PointCloud<Laser>::Ptr LabelGenerationNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,

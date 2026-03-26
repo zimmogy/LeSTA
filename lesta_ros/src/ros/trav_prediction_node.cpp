@@ -58,11 +58,18 @@ void TravPredictionNode::loadConfig(const ros::NodeHandle &nh) {
 }
 
 void TravPredictionNode::initializePubSubs() {
-
+  /* old subscriber
   sub_lidarscan_ = nh_.subscribe(cfg_.lidarscan_topic,
                                  1, // queue size
                                  &TravPredictionNode::lidarScanCallback,
                                  this);
+  */
+  // [新增] 跨模态时间同步订阅
+  sub_lidarscan_sync_.subscribe(nh_, cfg_.lidarscan_topic, 100);
+  sub_visual_cost_sync_.subscribe(nh_, "/visual_cost_map", 100); 
+  sync_ = std::make_unique<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(10), sub_lidarscan_sync_, sub_visual_cost_sync_);
+  sync_->registerCallback(boost::bind(&TravPredictionNode::syncedCallback, this, _1, _2));
+  // publisher 保持不变
   pub_downsampled_scan_ =
       nh_.advertise<sensor_msgs::PointCloud2>("/lesta/prediction/scan_downsampled", 1);
   pub_filtered_scan_ =
@@ -92,7 +99,8 @@ void TravPredictionNode::initializeTimers() {
   map_publish_timer_ =
       nh_.createTimer(map_pub_dt, &TravPredictionNode::publishMaps, this, false, false);
 }
-
+// old callback function
+/* 
 void TravPredictionNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &msg) {
 
   if (!lidarscan_received_) {
@@ -134,7 +142,70 @@ void TravPredictionNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &ms
   // 7. Publish maps
   map_publish_timer_.start();
 }
+*/
+// ======================
+// [new] 新增融合回调函数
+void TravPredictionNode::syncedCallback(const sensor_msgs::PointCloud2ConstPtr& scan_msg, 
+                                        const sensor_msgs::ImageConstPtr& cost_img_msg) {
+  if (!lidarscan_received_) {
+    lidarscan_received_ = true;
+    frame_id_.sensor = scan_msg->header.frame_id;
+    pose_update_timer_.start();
+    std::cout << "\033[1;32m[lesta_ros]: Pointcloud & Image Received! Online Prediction started...\033[0m\n";
+  }
 
+  // 1. 获取 TF
+  geometry_msgs::TransformStamped sensor2base, base2map;
+  if (!tf_.lookupTransform(frame_id_.robot, frame_id_.sensor, sensor2base) ||
+      !tf_.lookupTransform(frame_id_.map, frame_id_.robot, base2map)){
+    ROS_WARN_THROTTLE(1.0, "[TravPredictionNode] Waiting for TF transforms...");
+    return;
+  }
+
+  // 2. 无 cv_bridge 依赖的裸指针内存映射 (绝对杜绝 ROS 冲突)
+  if (cost_img_msg->encoding != "32FC1") {
+    ROS_ERROR("Expected visual cost map encoding '32FC1'");
+    return;
+  }
+  cv::Mat visual_cost_map(cost_img_msg->height, cost_img_msg->width, CV_32FC1,
+                          const_cast<uint8_t*>(&cost_img_msg->data[0]), cost_img_msg->step);
+  visual_cost_map = visual_cost_map.clone(); // 深拷贝保护生命周期
+
+  // 3. 点云预处理
+  auto scan_raw = boost::make_shared<pcl::PointCloud<Laser>>();
+  pcl::fromROSMsg(*scan_msg, *scan_raw);
+  auto scan_preprocessed = preprocessScan(scan_raw, sensor2base, base2map);
+  if (!scan_preprocessed) return;
+
+  // 4. 【时序第一步】：地形基础建图 (更新 Elevation)
+  auto sensor2map = TransformOps::multiplyTransforms(sensor2base, base2map);
+  Eigen::Vector3f sensor_position3d(sensor2map.transform.translation.x,
+                                    sensor2map.transform.translation.y,
+                                    sensor2map.transform.translation.z);
+  auto measured_indices = terrainMapping(scan_preprocessed, sensor_position3d);
+
+  // 5. 【时序第二步】：融合视觉代价 (使用您推导的完美 T_map_to_sensor 矩阵)
+  Eigen::Quaternionf q(sensor2map.transform.rotation.w, sensor2map.transform.rotation.x,
+                       sensor2map.transform.rotation.y, sensor2map.transform.rotation.z);
+  Eigen::Vector3f t(sensor2map.transform.translation.x, sensor2map.transform.translation.y,
+                    sensor2map.transform.translation.z);
+  Eigen::Matrix4f T_sensor2map = Eigen::Matrix4f::Identity();
+  T_sensor2map.block<3,3>(0,0) = q.toRotationMatrix();
+  T_sensor2map.block<3,1>(0,3) = t;
+  Eigen::Matrix4f T_map_to_sensor = T_sensor2map.inverse();
+  
+  mapper_->integrateVisualCost(scan_preprocessed, visual_cost_map, T_map_to_sensor);
+
+  // 6. 【时序第三步】：提取几何特征
+  feature_extractor_->extractFeatures(mapper_->getHeightMap(), measured_indices);
+  
+  // 7. 【时序第四步】：多模态 MLP 推理 (此时 5 维特征全部就绪！)
+  trav_estimator_->estimateTraversability(mapper_->getHeightMap(), measured_indices);
+
+  // 8. 触发地图发布
+  map_publish_timer_.start();
+}
+// =================
 pcl::PointCloud<Laser>::Ptr
 TravPredictionNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
                                    const geometry_msgs::TransformStamped &sensor2base,

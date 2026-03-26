@@ -21,7 +21,7 @@
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <sensor_msgs/Imu.h>
-#include <cv_bridge/cv_bridge.h>
+#include <opencv2/opencv.hpp>
 // =============================
 
 #include "common/ros/common.h"
