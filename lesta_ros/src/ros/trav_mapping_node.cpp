@@ -138,6 +138,16 @@ void TravMappingNode::syncedCallback( const sensor_msgs::PointCloud2ConstPtr& sc
   trav_mapper_->traversabilityMapping(mapper_->getHeightMap(), measured_indices);
   map_publish_timer_.start(); // start publishing maps
 }
+void TravMappingNode::initializeServices() {
+  //
+}
+
+void TravMappingNode::initializeTimers() {
+  ros::Duration map_pub_dt(1.0 / cfg_.map_pub_rate);
+  map_publish_timer_ =
+      nh_.createTimer(map_pub_dt, &TravMappingNode::publishMaps, this, false, false);
+}
+
 void TravMappingNode::lidarScanCallback(const sensor_msgs::PointCloud2Ptr &msg) {
 
   if (!lidarscan_received_) {
