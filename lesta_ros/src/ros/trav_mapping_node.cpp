@@ -87,6 +87,15 @@ void TravMappingNode::initializePubSubs() {
 // =================================
 void TravMappingNode::syncedCallback( const sensor_msgs::PointCloud2ConstPtr& scan_msg, 
                                       const sensor_msgs::ImageConstPtr& cost_img_msg) {
+                                        // === 请在这里补上这部分初始化代码 ===
+  if (!lidarscan_received_) {
+    lidarscan_received_ = true;
+    frame_id_.sensor = scan_msg->header.frame_id; // 从点云消息中获取 sensor 的 frame_id
+    std::cout << "\033[1;32m[lesta_ros::TravMappingNode]: "
+              << "Synced scans received! Starting vision-geometry traversability mapping... "
+              << "\033[0m\n";
+  }
+  // ==================================
   // 1. 直接获取 sensor 到 map 的 TF 变换 (绕过 base)
   geometry_msgs::TransformStamped sensor2map;
   if (!tf_.lookupTransform(frame_id_.map, frame_id_.sensor, sensor2map)){
