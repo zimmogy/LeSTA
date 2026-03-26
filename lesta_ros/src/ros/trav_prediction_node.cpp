@@ -65,8 +65,8 @@ void TravPredictionNode::initializePubSubs() {
                                  this);
   */
   // [新增] 跨模态时间同步订阅
-  sub_lidarscan_sync_.subscribe(nh_, cfg_.lidarscan_topic, 100);
-  sub_visual_cost_sync_.subscribe(nh_, "/visual_cost_map", 100); 
+  sub_lidarscan_sync_.subscribe(nh_, cfg_.lidarscan_topic, 2);
+  sub_visual_cost_sync_.subscribe(nh_, "/visual_cost_map", 2); 
   sync_ = std::make_unique<message_filters::Synchronizer<SyncPolicy>>(SyncPolicy(10), sub_lidarscan_sync_, sub_visual_cost_sync_);
   sync_->registerCallback(boost::bind(&TravPredictionNode::syncedCallback, this, _1, _2));
   // publisher 保持不变
