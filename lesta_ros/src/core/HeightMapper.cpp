@@ -263,7 +263,7 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
 
   // 确保地图包含 cost 图层
   if(!map_.exists(lesta::layers::Visual::COST)) {
-    map_.addLayer(lesta::layers::Visual::COST, std::nanf("")); // 默认设为 NaN 更好，避免误判为 0(平坦)
+    map_.addLayer(lesta::layers::Visual::COST, 0.0f); // 默认从 nan 改为 0 ，消除黑色区域test
   }
 
   // 3. 遍历当前帧点云
@@ -299,8 +299,8 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
       
       if (map_.getIndex(position, index)) {
         float current_cost = map_.at(lesta::layers::Visual::COST, index);
-        // 保守策略：同一个栅格被多个点击中时，保留危险系数 (cost) 最高的
-        if (std::isnan(current_cost) || cost > current_cost) {
+        // 修改后：同一个栅格被多个点击中时，保留最高的危险系数
+        if (cost > current_cost) {
             map_.at(lesta::layers::Visual::COST, index) = cost;
         }
       }
