@@ -104,7 +104,7 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
   // 使用剩下的4维几何特征进行推理
 
   for (const auto &index : measured_indices) {
-// Create feature vector with the correct dimension
+  // Create feature vector with the correct dimension
     Eigen::VectorXf feature(cfg.feature_fields.size());
     bool all_feature_values_valid = true;
 
@@ -126,8 +126,8 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
       }
     }
 
-    if (!all_feature_values_valid)
-      continue;
+    if (!all_feature_values_valid){
+      continue;}
     features.push_back(std::move(feature));
     valid_indices.push_back(index);
   }
