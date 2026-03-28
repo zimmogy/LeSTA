@@ -3,7 +3,7 @@ node:
   map_publish_rate: 1.0            # [Hz], For visualization
   pose_update_rate: 10.0           # [Hz]
   visualize_3d_scan: false
-  remove_backpoints: false          # [bool], Remove remoter points
+  remove_backpoints: true          # [bool], Remove remoter points
   debug_mode: false
 
 frame_id:
