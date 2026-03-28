@@ -16,7 +16,7 @@ height_mapper:
   map_length_y: 10.0                 # [meter]
   grid_resolution: 0.1               # [meter]
   min_height_threshold: -0.5         # [meter]
-  max_height_threshold: 1.5          # [meter]
+  max_height_threshold: 2.0          # [meter]
 
 traversability_network:
   model_path: "$(env HOME)/Downloads/LeSTA_campus_road_libtorch.pt"
