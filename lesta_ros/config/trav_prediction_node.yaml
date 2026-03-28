@@ -7,7 +7,7 @@ node:
 
 frame_id:
   robot_frame: "base_link"
-  map_frame: &map_frame "odom" 
+  map_frame: &map_frame "map" 
 
 height_mapper:
   estimator_type: "KalmanFilter"   # ["StatMean", "KalmanFilter", "MovingAverage"]
