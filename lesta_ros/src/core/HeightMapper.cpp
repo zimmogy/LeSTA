@@ -254,14 +254,14 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
   K_intrinsic.at<double>(2,2) = 1.0;
 
  // ================= 修改核心点 =================
-  // 2. 直接抄录 RELLIS-3D 标定文件中的 4x4 外参矩阵 (T_cam_from_lidar)
-  // 废弃 Eigen::Quaternionf 和 .inverse() 的写法
+// RELLIS-3D 真实的 LiDAR 到 Camera 的 4x4 投影矩阵
+  // 由 T_cam_to_lidar 求逆得出，完美适配其后置 LiDAR 的坐标系
   Eigen::Matrix4f T_lidar_to_cam;
-  T_lidar_to_cam << -0.00760431, -0.99997109,  0.00000000, -0.13165462,
-                     0.01235339, -0.00009394, -0.99992369,  0.03870398,
-                     0.99989478, -0.00760373,  0.01235411, -0.17253834,
-                     0.00000000,  0.00000000,  0.00000000,  1.00000000;
-
+  T_lidar_to_cam << 
+      -0.005104, -0.999940,  0.008940,  0.03957,
+      -0.034580,  0.009100,  0.999360,  0.16753,
+      -0.999380,  0.004800, -0.034620, -0.13772,
+       0.000000,  0.000000,  0.000000,  1.00000;
   if(!map_.exists(lesta::layers::Visual::COST)) {
     map_.addLayer(lesta::layers::Visual::COST, 0.0f); 
   }
