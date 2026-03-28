@@ -173,7 +173,7 @@ LabelGenerationNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
   // (Optional) Remove remoter points
   if (cfg_.remove_backpoints)
     scan_preprocessed =
-        PointCloudOps::filterAngle2D<Laser>(scan_preprocessed, -135.0, 135.0);
+        PointCloudOps::filterAngle2D<Laser>(scan_preprocessed, -105.0, 105.0);
 
   // 4. Publish filtered scan
   publishFilteredScan(scan_preprocessed);
