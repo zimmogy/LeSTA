@@ -253,59 +253,64 @@ void HeightMapper::integrateVisualCost(const pcl::PointCloud<Laser>::Ptr& cloud_
   K_intrinsic.at<double>(1,2) = 624.049972;       
   K_intrinsic.at<double>(2,2) = 1.0;
 
-  // 2. RELLIS-3D 雷达-相机外参保持不变
-  Eigen::Quaternionf q(-0.50507811, 0.51206185, 0.49024953, -0.49228464);
-  Eigen::Vector3f t(-0.13165462, 0.03870398, -0.17253834);
-  Eigen::Matrix4f RT = Eigen::Matrix4f::Identity();
-  RT.block<3, 3>(0, 0) = q.toRotationMatrix();
-  RT.block<3, 1>(0, 3) = t;
-  Eigen::Matrix4f T_lidar_to_cam = RT.inverse();
+ // ================= 修改核心点 =================
+  // 2. 直接抄录 RELLIS-3D 标定文件中的 4x4 外参矩阵 (T_cam_from_lidar)
+  // 废弃 Eigen::Quaternionf 和 .inverse() 的写法
+  Eigen::Matrix4f T_lidar_to_cam;
+  T_lidar_to_cam << -0.00760431, -0.99997109,  0.00000000, -0.13165462,
+                     0.01235339, -0.00009394, -0.99992369,  0.03870398,
+                     0.99989478, -0.00760373,  0.01235411, -0.17253834,
+                     0.00000000,  0.00000000,  0.00000000,  1.00000000;
 
-  // 确保地图包含 cost 图层
   if(!map_.exists(lesta::layers::Visual::COST)) {
-    map_.addLayer(lesta::layers::Visual::COST, 0.0f); // 默认从 nan 改为 0 ，消除黑色区域test
+    map_.addLayer(lesta::layers::Visual::COST, 0.0f); 
   }
 
-  // 3. 遍历当前帧点云
+  // [新增] 用于排查投影状态的调试计数器
+  int total_pts = 0;
+  int front_pts = 0;
+  int valid_project_pts = 0;
+// 3. 遍历当前帧点云
   for (const auto& pt_map : cloud_map->points) {
+    total_pts++;
     
-    // 【修改点A】先将 Map 系点转换回 LiDAR 系，才能给相机用
     Eigen::Vector4f p_m(pt_map.x, pt_map.y, pt_map.z, 1.0);
     Eigen::Vector4f p_sensor = T_map_to_sensor * p_m;
 
-    // 在 sensor 系下剔除雷达近处死角的点
     if (std::abs(p_sensor.x()) < 0.1 && std::abs(p_sensor.y()) < 0.1) continue;
 
-    // 将 LiDAR 系下的点转换到相机坐标系  
+    // 直接相乘，不需要 inverse
     Eigen::Vector4f p_c = T_lidar_to_cam * p_sensor;
 
-    // 剔除相机后方的点
     if (p_c.z() <= 0.0) continue;
+    front_pts++; // 统计在相机正前方的点数
 
-    // 投影到像素平面
     double u = (K_intrinsic.at<double>(0,0) * p_c.x() + K_intrinsic.at<double>(0,2) * p_c.z()) / p_c.z();
     double v = (K_intrinsic.at<double>(1,1) * p_c.y() + K_intrinsic.at<double>(1,2) * p_c.z()) / p_c.z();
 
     int px = std::round(u);
     int py = std::round(v);
 
-    // 4. 检查是否在图像视野内并更新地图
     if (px >= 0 && px < visual_cost_img.cols && py >= 0 && py < visual_cost_img.rows) {
+      valid_project_pts++; // 统计真正落入图像像素内的点数
+      
       float cost = visual_cost_img.at<float>(py, px);
-
-      // 【修改点B】写回栅格时，必须使用原始的 Map 系坐标 pt_map !
       grid_map::Position position(pt_map.x, pt_map.y);
       grid_map::Index index;
       
       if (map_.getIndex(position, index)) {
         float current_cost = map_.at(lesta::layers::Visual::COST, index);
-        // 修改后：同一个栅格被多个点击中时，保留最高的危险系数
         if (cost > current_cost) {
             map_.at(lesta::layers::Visual::COST, index) = cost;
         }
       }
     }
   }
+  
+  // 打印最终的投影存活率
+  std::cout << "[Debug] Lidar points - Total: " << total_pts 
+            << " | Front of Cam: " << front_pts 
+            << " | Valid Projected: " << valid_project_pts << std::endl;
 }
 // ============================================================================
 } // namespace lesta
