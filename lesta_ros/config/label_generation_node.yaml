@@ -11,7 +11,7 @@ frame_id:
   map_frame: &map_frame "map"
 
 height_mapper:
-  estimator_type: "KalmanFilter"   # ["StatMean", "KalmanFilter", "MovingAverage"]
+  estimator_type: "StatMean"   # ["StatMean", "KalmanFilter", "MovingAverage"]
   frame_id: *map_frame
   map_length_x: 500.0              # [meter]
   map_length_y: 500.0              # [meter], Adjust these values based on the labeling areas
