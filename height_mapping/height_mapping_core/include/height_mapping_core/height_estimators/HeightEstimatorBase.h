@@ -11,10 +11,8 @@
 
 #include "height_mapping_core/helper_functions.h"
 #include "height_mapping_core/height_map/HeightMap.h"
-#include "height_mapping_core/height_map/cloud_types.h" // new
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-
 
 namespace height_mapping {
 class HeightEstimatorBase {
