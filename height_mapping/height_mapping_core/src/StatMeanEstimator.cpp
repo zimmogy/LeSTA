@@ -91,7 +91,7 @@ void StatMeanEstimator::estimate(HeightMap &map,
 // 重载 2: 针对我们自定义类型 Laser / lesta_types::PointXYZILRGB (完整特征！)
 // =========================================================================
 void StatMeanEstimator::estimate(HeightMap &map,
-                                 const pcl::PointCloud<Laser> &cloud) {
+                                 const pcl::PointCloud<pcl::Laser> &cloud) {
   if (hasEmptyCloud(cloud))
     return;
 
