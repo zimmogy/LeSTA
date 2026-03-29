@@ -18,8 +18,8 @@ public:
   ~StatMeanEstimator() override = default;
 
   void estimate(HeightMap &map, const pcl::PointCloud<pcl::PointXYZ> &cloud) override;
-  void estimate(HeightMap &map, const pcl::PointCloud<pcl::PointXYZI> &cloud) override;
-  void estimate(HeightMap &map, const pcl::PointCloud<pcl::PointXYZRGB> &cloud) override;
+  void estimate(HeightMap &map, const pcl::PointCloud<Laser> &cloud) override; //pcl::PointXYZI -> Laser
+  void estimate(HeightMap &map, const pcl::PointCloud<Color> &cloud) override; //pcl::PointXYZRGB -> Color
 
 private:
   /**
