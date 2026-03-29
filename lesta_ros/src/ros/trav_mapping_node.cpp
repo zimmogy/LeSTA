@@ -235,9 +235,7 @@ void TravMappingNode::publishTravMap(const HeightMap &heightmap,
                                      lesta::layers::Traversability::BINARY,
                                      lesta::layers::Traversability::LOG_ODDS,
                                      lesta::layers::Traversability::LOG_ODDS_PROBABILITY,
-                                     lesta::layers::Traversability::LOG_ODDS_BINARY,
-                                     "semantic_label", // 新增语义发布层
-                                     "color"}; // 新增rgb色彩层
+                                     lesta::layers::Traversability::LOG_ODDS_BINARY};
   sensor_msgs::PointCloud2 msg;
   toPointCloud2(heightmap, layers, indices, msg);
   pub_travmap_.publish(msg);

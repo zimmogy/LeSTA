@@ -10,7 +10,7 @@ frame_id:
   map_frame: &map_frame "map" 
 
 height_mapper:
-  estimator_type: "StatMean"   # ["StatMean", "KalmanFilter", "MovingAverage"]
+  estimator_type: "KalmanFilter"   # ["StatMean", "KalmanFilter", "MovingAverage"]
   frame_id: *map_frame
   map_length_x: 10.0                 # [meter]
   map_length_y: 10.0                 # [meter]

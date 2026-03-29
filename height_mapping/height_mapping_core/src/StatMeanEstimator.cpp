@@ -8,7 +8,7 @@
  */
 
 #include "height_mapping_core/height_estimators/StatMeanEstimator.h"
-#include "height_mapping_core/height_map/cloud_types.h"
+
 /*
 StatMeanEstimator tracks:
 - elevation
@@ -38,19 +38,8 @@ void StatMeanEstimator::estimate(HeightMap &map,
   auto &heightVarianceMatrix = map.getHeightVarianceMatrix();
   auto &numMeasuredMatrix = map.getMeasurementCountMatrix();
 
-  // ============= new ================
-  // 添加新增图层
-  map.addLayer(layers::Sensor::Lidar::INTENSITY);
-  map.addLayer("semantic_label");
-  map.addLayer("color"); // 使用 "color" 作为图层名以兼容后续发布逻辑
-
   map.addLayer(layers::Confidence::STANDARD_ERROR);
   map.addLayer(layers::Confidence::CONFIDENCE_INTERVAL);
-  // 获取矩阵引用
-  auto &intensityMatrix = map[layers::Sensor::Lidar::INTENSITY];
-  auto &semanticMatrix = map["semantic_label"];
-  auto &colorMatrix = map["color"];
-
   auto &standardErrorMatrix = map[layers::Confidence::STANDARD_ERROR];
   auto &confidenceIntervalMatrix = map[layers::Confidence::CONFIDENCE_INTERVAL];
 
@@ -64,9 +53,6 @@ void StatMeanEstimator::estimate(HeightMap &map,
       continue;
 
     auto &height = heightMatrix(measuredIndex(0), measuredIndex(1));
-    auto &intensity = intensityMatrix(measuredIndex(0), measuredIndex(1));
-    auto &semantic = semanticMatrix(measuredIndex(0), measuredIndex(1));
-    auto &color = colorMatrix(measuredIndex(0), measuredIndex(1));
     auto &minHeight = heightMinMatrix(measuredIndex(0), measuredIndex(1));
     auto &maxHeight = heightMaxMatrix(measuredIndex(0), measuredIndex(1));
     auto &variance = heightVarianceMatrix(measuredIndex(0), measuredIndex(1));
@@ -82,9 +68,6 @@ void StatMeanEstimator::estimate(HeightMap &map,
       maxHeight = newPoint.z;
       variance = 0.0f; // Single measurement -> no variance
       nPoints = 1;
-      intensity = newPoint.intensity;
-      semantic = newPoint.semantic_label;
-      color = newPoint.rgb;
       standardError = 2.0f; // Assume max error
       confidenceInterval = 2.0f;
       continue;
@@ -100,11 +83,6 @@ void StatMeanEstimator::estimate(HeightMap &map,
     // Statistics
     standardError = getStandardError(nPoints, variance);
     confidenceInterval = getConfidenceInterval(nPoints, variance);
-
-    //  网络更新逻辑：强度取均值，语义和颜色因为代表最高点的表面属性，直接覆盖更新即可。
-    meanFilter(intensity, nPoints, newPoint.intensity);
-    semantic = newPoint.semantic_label;
-    color = newPoint.rgb;
   }
 }
 
