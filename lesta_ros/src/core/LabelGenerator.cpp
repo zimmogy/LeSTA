@@ -18,7 +18,7 @@ void LabelGenerator::ensureLabelLayers(HeightMap &map) {
   map.addLayer(layers::Label::FOOTPRINT, 0.0f);
   map.addLayer(layers::Label::TRAVERSABILITY);
 }
-/*
+
 void LabelGenerator::addFootprint(HeightMap &map, grid_map::Position &robot_position) {
 
   ensureLabelLayers(map);
@@ -35,29 +35,6 @@ void LabelGenerator::addFootprint(HeightMap &map, grid_map::Position &robot_posi
     if (is_non_traversable)
       continue;
 
-    map.at(layers::Label::FOOTPRINT, *iterator) = 1.0;
-    map.at(layers::Label::TRAVERSABILITY, *iterator) = (float)Traversability::TRAVERSABLE;
-  }
-}
-*/
-void LabelGenerator::addFootprint(HeightMap &map, grid_map::Position &robot_position) {
-
-  ensureLabelLayers(map);
-
-  // Iterate over the footprint radius
-  grid_map::CircleIterator iterator(map, robot_position, cfg.footprint_radius);
-  for (iterator; !iterator.isPastEnd(); ++iterator) {
-    if (map.isEmptyAt(*iterator))
-      continue;
-
-    // --- 修改的核心部分：注释掉阻碍轨迹写入的保护机制 ---
-    // auto is_non_traversable = std::abs(map.at(layers::Label::TRAVERSABILITY, *iterator) -
-    //                                    (float)Traversability::NON_TRAVERSABLE) < 1e-3;
-    // if (is_non_traversable)
-    //   continue;
-    // --------------------------------------------------
-
-    // 强行写入足迹并标记为可通行
     map.at(layers::Label::FOOTPRINT, *iterator) = 1.0;
     map.at(layers::Label::TRAVERSABILITY, *iterator) = (float)Traversability::TRAVERSABLE;
   }
@@ -88,30 +65,29 @@ void LabelGenerator::addObstacles(HeightMap &map,
 // 新增标签生成逻辑，物理经验绝对优先
 void LabelGenerator::addObstacles(HeightMap &map,
                                   const std::vector<grid_map::Index> &measured_indices) {
-
   ensureLabelLayers(map);
 
   for (const auto &index : measured_indices) {
-
     if (map.isEmptyAt(layers::Feature::SLOPE, index))
       continue;
 
+    // 检查是否有轨迹覆盖
     bool has_footprint = std::abs(map.at(layers::Label::FOOTPRINT, index) - 1.0) < 1e-3;
 
-    // --- 修改的核心部分：物理经验拥有最高优先级 ---
+    // --- 修改开始：调整判断优先级 ---
     if (has_footprint) {
-      // 1. 只要被机器人碾压过，强制标记为可通行
+      // 1. 经验绝对优先：被碾压过的区域，强制标记为可通行
       map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::TRAVERSABLE;
     } 
     else if (map.at(layers::Feature::STEP, index) > cfg.max_traversable_step) {
-      // 2. 没有轨迹时，才依靠几何特征（STEP）判定为障碍物
+      // 2. 无轨迹区域，再根据高度差(STEP)判定是否为障碍物
       map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::NON_TRAVERSABLE;
     } 
     else {
-      // 3. 其他安全的未知区域
+      // 3. 几何安全且无轨迹的未知区域
       map.at(layers::Label::TRAVERSABILITY, index) = (float)Traversability::UNKNOWN;
     }
+    // --- 修改结束 ---
   }
 }
-
 } // namespace lesta
