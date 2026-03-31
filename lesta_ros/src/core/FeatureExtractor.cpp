@@ -119,5 +119,5 @@ void FeatureExtractor::extractFeatures(
         map.at(layers::Feature::INTENSITY_VAR, index) = 0.0f;
   }
 }
-
+}
 } // namespace lesta
