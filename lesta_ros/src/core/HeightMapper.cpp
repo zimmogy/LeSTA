@@ -8,6 +8,8 @@
  */
 
 #include "lesta/core/HeightMapper.h"
+#include "lesta/types/layer_definitions.h"
+#include <pcl/type_traits.h>
 
 namespace lesta {
 
@@ -34,6 +36,12 @@ void HeightMapper::initMap() {
   map_.setFrameId(cfg.frame_id);
   map_.setGeometry(grid_map::Length(cfg.map_length_x, cfg.map_length_y),
                    cfg.grid_resolution);
+  
+  // =========== [新增代码] =============
+  // 初始化强度特征图层，确保HeightMap(GridMap)包含这些通道
+  map_.addLayer(layers::Feature::INTENSITY_MEAN);
+  map._addLayer(layers::Feature::INTENSITY_VAR);
+  // ===================================
 }
 
 void HeightMapper::initHeightEstimator() {
@@ -84,6 +92,53 @@ typename boost::shared_ptr<pcl::PointCloud<PointT>> HeightMapper::heightMapping(
 
   // 2. Update height map
   height_estimator_->estimate(map_, *cloud_rasterized);
+
+  // ========= [新增代码] =========
+  // 3.计算并写入强度特征(Intensity Mean & Variance)
+  // 使用 if constexpr 在编译期安全检查当前 PointT 是否含有intensity 字段
+  if constexpr (pcl::traits::has_field<PointT, pcl::fields::intensity>::value) {
+      std::unordered_map<std::pair<int, int>, std::vector<float>, pair_hash> intensity_grid;
+      grid_map::Position measuredPosition;
+      grid_map::Index measuredIndex;
+
+      // 3.1 遍历原始密集点云，将点云强度按照其落入的 Grid 进行归类聚合
+      for (const auto &point : *cloud) {
+          measuredPosition << point.x, point.y;
+          
+          // 若点超出了当前局部地图的范围，则跳过
+          if (!map_.getIndex(measuredPosition, measuredIndex)) {
+              continue; 
+          }
+
+          auto gridIndex = std::make_pair(measuredIndex.x(), measuredIndex.y());
+          intensity_grid[gridIndex].push_back(point.intensity);
+      }
+
+      // 3.2 计算每个 Grid 中的强度均值与方差，并写入到地图中
+      for (const auto &[index_pair, intensities] : intensity_grid) {
+          grid_map::Index gridIndex(index_pair.first, index_pair.second);
+
+          // 计算均值
+          float sum = 0.0f;
+          for (float i : intensities) sum += i;
+          float mean = sum / intensities.size();
+
+          // 计算样本方差
+          float var = 0.0f;
+          if (intensities.size() > 1) {
+              float var_sum = 0.0f;
+              for (float i : intensities) {
+                  var_sum += (i - mean) * (i - mean);
+              }
+              var = var_sum / (intensities.size() - 1); 
+          }
+
+          // 写入 HeightMap (底层通过重载或直接调用封装的 grid_map::GridMap)
+          map_.at(layers::Feature::INTENSITY_MEAN, gridIndex) = mean;
+          map_.at(layers::Feature::INTENSITY_VAR, gridIndex) = var;
+      }
+  }
+  // ===============================================================
   return cloud_rasterized;
 }
 

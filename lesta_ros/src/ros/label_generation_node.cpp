@@ -225,7 +225,11 @@ void LabelGenerationNode::publishLabelMap(const ros::TimerEvent &event) {
                                      lesta::layers::Feature::CURVATURE,
                                      height_mapping::layers::Height::ELEVATION_VARIANCE,
                                      lesta::layers::Label::FOOTPRINT,
-                                     lesta::layers::Label::TRAVERSABILITY};
+                                     lesta::layers::Label::TRAVERSABILITY,
+                                     // 新增的可视化层
+                                     lesta::layers::Feature::INTENSITY_MEAN,
+                                     lesta::layers::Feature::INTENSITY_VAR,
+                                     lesta::layers::Feature::SPARSITY};
   sensor_msgs::PointCloud2 cloud_msg;
   const auto &height_map = mapper_->getHeightMap();
   const auto &valid_indices = mapper_->getMeasuredGridIndices();
@@ -354,6 +358,15 @@ bool LabelGenerationNode::saveLabelMap(lesta::save_training_data::Request &req,
     point.curvature = height_map.at(lesta::layers::Feature::CURVATURE, index);
     point.variance =
         height_map.at(height_mapping::layers::Height::ELEVATION_VARIANCE, index);
+    point.intensity_mean = 
+        height_map.isValid(index, lesta::layers::Feature::INTENSITY_MEAN) ? 
+        height_map.at(lesta::layers::Feature::INTENSITY_MEAN, index) : 0.0f;
+    point.intensity_var = 
+        height_map.isValid(index, lesta::layers::Feature::INTENSITY_VAR) ?
+        height_map.at(lesta::layers::Feature::INTENSITY_VAR, index) : 0.0f;
+    point.sparsity = 
+        height_map.isValid(index, lesta::layers::Feature::SPARSITY) ?
+        height_map.at(lesta::layers::Feature::SPARSITY, index) : 0.0f;
     point.footprint = height_map.at(lesta::layers::Label::FOOTPRINT, index);
     point.traversability_label =
         height_map.at(lesta::layers::Label::TRAVERSABILITY, index);

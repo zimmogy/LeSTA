@@ -15,12 +15,17 @@ namespace lesta {
 FeatureExtractor::FeatureExtractor(const Config &cfg) : cfg(cfg) {}
 
 void FeatureExtractor::ensureFeatureLayers(HeightMap &map) {
-
   // Basic feature layers
   map.addLayer(layers::Feature::STEP);
   map.addLayer(layers::Feature::SLOPE);
   map.addLayer(layers::Feature::ROUGHNESS);
   map.addLayer(layers::Feature::CURVATURE);
+  
+  // 确保新的特征层被初始化
+  map.addLayer(layers::Feature::VARIANCE);
+  map.addLayer(layers::Feature::INTENSITY_MEAN);
+  map.addLayer(layers::Feature::INTENSITY_VAR);
+  map.addLayer(layers::Feature::SPARSITY);
 
   // Layers for visualization of normal vector
   map.addLayer(layers::Feature::NORMAL_X);
@@ -98,9 +103,20 @@ void FeatureExtractor::extractFeatures(
     map.at(layers::Feature::ROUGHNESS, index) = std::sqrt(eigenvalues(0));
     map.at(layers::Feature::CURVATURE, index) =
         std::abs(eigenvalues(0) / covariance.trace());
+    // 补充：几何方差（Z轴高度方差）
+    map.at(layers::Feature::VARIANCE, index) = covariance(2, 2);
+    // 新增 1：计算稀疏度 (Sparsity)
+    // 邻域内的点越少，稀疏度越高（可用于识别由于杂草遮挡导致的激光雷达稀疏区）
+    map.at(layers::Feature::SPARSITY, index) = 1.0f / static_cast<float>(neighbors.size());
     map.at(layers::Feature::NORMAL_X, index) = normal_vector(0);
     map.at(layers::Feature::NORMAL_Y, index) = normal_vector(1);
     map.at(layers::Feature::NORMAL_Z, index) = normal_vector(2);
+    // 新增 2：预留强度特征槽位
+    // 假设上游的 HeightMapper 已经将 INTENSITY_MEAN 和 INTENSITY_VAR 写入 GridMap，
+    // 这里只需确保提取时包含这些层即可。如果没有写入，可以在此处设置默认值避免报错：
+    if (!map.isValid(index, layers::Feature::INTENSITY_MEAN)) {
+        map.at(layers::Feature::INTENSITY_MEAN, index) = 0.0f; // 或对接你的点云强度提取逻辑
+        map.at(layers::Feature::INTENSITY_VAR, index) = 0.0f;
   }
 }
 

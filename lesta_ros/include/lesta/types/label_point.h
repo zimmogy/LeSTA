@@ -20,6 +20,12 @@ struct EIGEN_ALIGN16 LabelPoint {
   float slope;
   float roughness;
   float curvature;
+  
+  // 新增特征
+  float intensity_mean;
+  float intensity_var;
+  float sparsity;
+
   float variance;
   float footprint;
   float traversability_label;
@@ -40,4 +46,10 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(
                                               footprint,
                                               footprint)(float,
                                                          traversability_label,
-                                                         traversability_label))
+                                                         traversability_label)
+                                                        (float,
+                                                         intensity_mean, intensity_mean)
+                                                        (float,
+                                                         intensity_var, intensity_var)
+                                                        (float,
+                                                         sparsity, sparsity))

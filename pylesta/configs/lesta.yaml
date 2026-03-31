@@ -7,19 +7,25 @@ DATASET:
     - slope
     - roughness
     - curvature
-    # - variance
+    - variance
+    - intensity_mean
+    - intensity_var
+    - sparsity
   feature_weights:
     step: 1.0
     slope: 1.0
     roughness: 1.0
     curvature: 1.0
-    # variance: 1.0
+    variance: 1.0
+    intensity_mean: 1.0
+    intensity_var: 1.0
+    sparsity: 1.0
   label_field: "traversability_label"
   skip_dataset_normalization: &use_normalization_layer true
 
 MODEL:
   type: "MLP"
-  input_dim: 4
+  input_dim: 8
   hidden_dims: [8, 4]
   output_dim: 1
   dropout_rate: 0.2

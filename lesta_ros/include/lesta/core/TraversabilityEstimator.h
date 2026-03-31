@@ -58,6 +58,11 @@ private:
       {"roughness", layers::Feature::ROUGHNESS},
       {"curvature", layers::Feature::CURVATURE},
       {"elevation_variance", height_mapping::layers::Height::ELEVATION_VARIANCE},
+
+      // [新增特征映射]：将 YAML 中的字符串字段映射到 grid_map 的具体 Layer 名称
+      {"intensity_mean", layers::Feature::INTENSITY_MEAN},
+      {"intensity_var", layers::Feature::INTENSITY_VAR},
+      {"sparsity", layers::Feature::SPARSITY},
   };
 };
 
