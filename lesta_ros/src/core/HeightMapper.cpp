@@ -39,7 +39,7 @@ void HeightMapper::initMap() {
   // =========== [新增代码] =============
   // 初始化强度特征图层，确保HeightMap(GridMap)包含这些通道
   map_.addLayer(layers::Feature::INTENSITY_MEAN);
-  map._addLayer(layers::Feature::INTENSITY_VAR);
+  map_.addLayer(layers::Feature::INTENSITY_VAR);
   // ===================================
 }
 
