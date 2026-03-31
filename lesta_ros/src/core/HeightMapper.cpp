@@ -9,7 +9,6 @@
 
 #include "lesta/core/HeightMapper.h"
 #include "lesta/types/layer_definitions.h"
-#include <pcl/type_traits.h>
 
 namespace lesta {
 
