@@ -189,16 +189,17 @@ class LestaTrainer:
 
         with torch.no_grad():
             for batch in self.val_loader:
-                # Prepare inputs
                 inputs = batch['feats'].to(self.device)
                 labels = batch['label'].to(self.device)
 
-                # Forward pass
-                outputs = self.network(inputs).squeeze()
-                loss = self.criterion(outputs, labels)
-
-                # Record validation loss
-                self.val_batch_losses.append(loss.item())
+                # 只计算真实有标签的数据 (0 和 1) 的 validation loss
+                valid_mask = (labels == 0) | (labels == 1)
+                if valid_mask.any():
+                    outputs = self.network(inputs[valid_mask]).squeeze()
+                    # 防止输出变成标量导致 BCE 报错
+                    if outputs.dim() == 0: outputs = outputs.unsqueeze(0)
+                    loss = self.criterion(outputs, labels[valid_mask])
+                    self.val_batch_losses.append(loss.item())
 
         # Calculate and record epoch validation loss
         epoch_loss = sum(self.val_batch_losses) / len(self.val_batch_losses)
