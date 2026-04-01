@@ -226,15 +226,15 @@ void TravMappingNode::publishTravMap(const HeightMap &heightmap,
                                      const std::unordered_set<grid_map::Index> &indices) {
 
   std::vector<std::string> layers = {height_mapping::layers::Height::ELEVATION,
-                                     height_mapping::layers::Height::VARIANCE,
+                                     lesta::layers::Feature::VARIANCE,
                                      lesta::layers::Feature::STEP,
                                      lesta::layers::Feature::SLOPE,
                                      lesta::layers::Feature::ROUGHNESS,
                                      lesta::layers::Feature::CURVATURE,
                                      // ================= [新增修复：发布新增的特征层] =================
-                                    lesta::layers::Feature::INTENSITY_MEAN,
-                                    lesta::layers::Feature::INTENSITY_VAR,
-                                    lesta::layers::Feature::SPARSITY,
+                                     lesta::layers::Feature::INTENSITY_MEAN,
+                                     lesta::layers::Feature::INTENSITY_VAR,
+                                     lesta::layers::Feature::SPARSITY,
                                     // ==============================================================
                                      lesta::layers::Traversability::PROBABILITY,
                                      lesta::layers::Traversability::BINARY,
