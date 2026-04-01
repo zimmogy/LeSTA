@@ -23,7 +23,8 @@ class LestaTrainer:
         self.val_dataset = datasets.get('val', None)
 
         # Training components
-        criterion.set_pos_weight(self.labeled_dataset.get_pos_weight())
+        # //注释掉正样本权重偏袒 
+        # criterion.set_pos_weight(self.labeled_dataset.get_pos_weight())
         self.criterion = criterion
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -151,7 +152,7 @@ class LestaTrainer:
             # ================== [新增核心修复：标签平滑] ==================
             # 阻止 Adam + BCE 带来的无限权重膨胀，将绝对的 0 和 1 软化。
             # 这样 Logit 会收敛在 ±4.0 左右，绝不会再炸到 -1700！
-            smoothed_labels = labels * 0.96 + 0.02
+            smoothed_labels = labels * 0.90 + 0.05
             # ==============================================================
             loss = self.criterion(outputs, smoothed_labels, risk_weights)
             # loss = self.criterion(outputs, labels)
