@@ -26,9 +26,9 @@ DATASET:
 MODEL:
   type: "MLP"
   input_dim: 8
-  hidden_dims: [8, 4]
+  hidden_dims: [32, 16]
   output_dim: 1
-  dropout_rate: 0.2
+  dropout_rate: 0.2 # 0.2
   use_normalization_layer: *use_normalization_layer
 
 TRAINER:
@@ -53,13 +53,14 @@ TRAINER:
   namespace: "LeSTA"
 
 LOSS:
-  type: "risk_sensitive_loss" # ["risk_sensitive_loss", "instance_weighted_loss", "bce_loss"]
+  type: "bce_loss" # ["risk_sensitive_loss", "instance_weighted_loss", "bce_loss"]
   entropy_coefficient: 0.1
 
 OPTIMIZER:
   type: "Adam"
-  learning_rate: 0.001
+  learning_rate: 0.0005 # 0.001
   Adam_beta1: 0.9
   Adam_beta2: 0.999
+  weiht_decay: 0.01
   scheduler: "exponential" # ["none", "step", "exponential", "plateau"]
   scheduler_gamma: 0.98 # 0.1 for step, plateau

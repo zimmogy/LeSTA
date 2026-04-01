@@ -2,7 +2,7 @@ node:
   lidarscan_topic: "/os1_cloud_node/points"
   map_publish_rate: 10.0             # [Hz]
   pose_update_rate: 10.0             # [Hz]
-  remove_backpoints: false            # [bool], Remove remoter points
+  remove_backpoints: true            # [bool], Remove remoter points
   debug_mode: false
 
 frame_id:
@@ -26,7 +26,7 @@ traversability_network:
     - slope
     - roughness
     - curvature
-    - elevation_variance
+    - variance
     - intensity_mean
     - intensity_var
     - sparsity
