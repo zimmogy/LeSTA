@@ -148,7 +148,12 @@ class LestaTrainer:
 
             # Forward pass
             outputs = self.network(inputs).squeeze()
-            loss = self.criterion(outputs, labels, risk_weights)
+            # ================== [新增核心修复：标签平滑] ==================
+            # 阻止 Adam + BCE 带来的无限权重膨胀，将绝对的 0 和 1 软化。
+            # 这样 Logit 会收敛在 ±4.0 左右，绝不会再炸到 -1700！
+            smoothed_labels = labels * 0.96 + 0.02
+            # ==============================================================
+            loss = self.criterion(outputs, smoothed_labels, risk_weights)
             # loss = self.criterion(outputs, labels)
 
             # Backward pass and optim
