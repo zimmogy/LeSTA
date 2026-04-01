@@ -105,9 +105,14 @@ void FeatureExtractor::extractFeatures(
         std::abs(eigenvalues(0) / covariance.trace());
     // 补充：几何方差（Z轴高度方差）
     map.at(layers::Feature::VARIANCE, index) = covariance(2, 2);
-    // 新增 1：计算稀疏度 (Sparsity)
-    // 邻域内的点越少，稀疏度越高（可用于识别由于杂草遮挡导致的激光雷达稀疏区）
-    map.at(layers::Feature::SPARSITY, index) = 1.0f / static_cast<float>(neighbors.size());
+    // 新增 1：计算局部致密度 (Density) 代替稀疏度，解决长尾分布导致的 Logit 爆炸问题
+    // 设定邻域内有效点数的上限（例如 100 个点），将局部点数线性映射到 0.0 ~ 1.0 的安全区间
+    const float MAX_POINTS_IN_RADIUS = 100.0f;
+    float point_count = static_cast<float>(neighbors.size());
+    float density = std::min(point_count, MAX_POINTS_IN_RADIUS) / MAX_POINTS_IN_RADIUS;
+    
+    // 注意：图层名仍保持 SPARSITY 以兼容现有的网络配置文件，但其物理意义已变为稳定的 Density
+    map.at(layers::Feature::SPARSITY, index) = density;
     map.at(layers::Feature::NORMAL_X, index) = normal_vector(0);
     map.at(layers::Feature::NORMAL_Y, index) = normal_vector(1);
     map.at(layers::Feature::NORMAL_Z, index) = normal_vector(2);
