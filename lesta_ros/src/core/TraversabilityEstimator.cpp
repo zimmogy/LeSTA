@@ -111,15 +111,15 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
       // ================= [新增部署端对齐代码] =================
       // 复刻 Python 端 dataset.py 中的 99% 分位数截断逻辑
       if (field_name == "intensity_mean") {
-          raw_value = std::min(raw_value, 1.0f);      // 使用 Python 打印出的截断上限
+          raw_value = std::min(raw_value, 1.0f) * 100.0f;      // 补齐尺寸放大 使用 Python 打印出的截断上限
       } else if (field_name == "intensity_var") {
-          raw_value = std::min(raw_value, 0.008476f); // 使用 Python 打印出的截断上限
+          raw_value = std::min(raw_value, 0.008476f) * 1000.0f; // 补齐尺寸放大 使用 Python 打印出的截断上限
       }
       // =======================================================
 
       feature(i) = raw_value;
     }
-    
+
     features.push_back(std::move(feature));
     valid_indices.push_back(index);
   }
