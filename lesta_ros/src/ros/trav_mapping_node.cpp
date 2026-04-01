@@ -226,7 +226,7 @@ void TravMappingNode::publishTravMap(const HeightMap &heightmap,
                                      const std::unordered_set<grid_map::Index> &indices) {
 
   std::vector<std::string> layers = {height_mapping::layers::Height::ELEVATION,
-                                     height_mapping::layers::Height::ELEVATION_VARIANCE,
+                                     height_mapping::layers::Height::VARIANCE,
                                      lesta::layers::Feature::STEP,
                                      lesta::layers::Feature::SLOPE,
                                      lesta::layers::Feature::ROUGHNESS,
