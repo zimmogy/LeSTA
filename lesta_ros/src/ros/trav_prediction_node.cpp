@@ -234,7 +234,7 @@ void TravPredictionNode::publishHeightmap(const HeightMap &map) {
 
 void TravPredictionNode::publishTravMap(const HeightMap &map) {
   std::vector<std::string> layers = map.getBasicLayers();
-  layers.push_back(height_mapping::layers::Height::VARIANCE);
+  layers.push_back(lesta::layers::Feature::VARIANCE);
   layers.push_back(lesta::layers::Feature::STEP);
   layers.push_back(lesta::layers::Feature::SLOPE);
   layers.push_back(lesta::layers::Feature::ROUGHNESS);
