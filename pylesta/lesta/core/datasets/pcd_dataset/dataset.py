@@ -91,9 +91,8 @@ class PCDDataset(PCDDatasetBase):
         self.feature_means = self.feature_vectors.mean(axis=0)
         self.feature_stds = self.feature_vectors.std(axis=0)
         # Prevent division by zero by setting zero std to a small value
-        # ========== 给予最小标准差，防止intensity极大波动值 =========
-        self.feature_stds = np.clip(self.feature_stds, a_min=0.01, a_max=None)
-        # =======================================================
+        self.feature_stds = np.where(
+            self.feature_stds == 0, 1e-8, self.feature_stds)
 
     def get_normalization_constants(self):
         """Get feature means and stds"""
