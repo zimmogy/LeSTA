@@ -102,23 +102,31 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
 
     // Create feature vector with the correct dimension
     Eigen::VectorXf feature(cfg.feature_fields.size());
+    bool has_nan_or_inf = false;
 
     // Fill feature vector based on configured fields
     for (size_t i = 0; i < cfg.feature_fields.size(); i++) {
       const std::string &field_name = cfg.feature_fields[i];
       float raw_value = map.at(featurefield_to_layer_[field_name], index);
 
-      // ================= [新增部署端对齐代码] =================
-      // 复刻 Python 端 dataset.py 中的 99% 分位数截断逻辑
-      if (field_name == "intensity_mean") {
-          raw_value = std::min(raw_value, 1.0f) * 100.0f;      // 补齐尺寸放大 使用 Python 打印出的截断上限
-      } else if (field_name == "intensity_var") {
-          raw_value = std::min(raw_value, 0.008476f) * 1000.0f; // 补齐尺寸放大 使用 Python 打印出的截断上限
+      // Block NaN/Inf corruption before it reaches LibTorch
+      if (std::isnan(raw_value) || std::isinf(raw_value)) {
+          has_nan_or_inf = true;
+          break;
       }
-      // =======================================================
+
+      // ================= [部署端对齐代码] =================
+      if (field_name == "intensity_mean") {
+          raw_value = std::min(raw_value, 1.0f) * 100.0f;      
+      } else if (field_name == "intensity_var") {
+          raw_value = std::min(raw_value, 0.008476f) * 1000.0f; 
+      }
+      // ====================================================
 
       feature(i) = raw_value;
     }
+
+    if (has_nan_or_inf) continue;
 
     features.push_back(std::move(feature));
     valid_indices.push_back(index);
@@ -126,7 +134,11 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
 
   // Perform batch inference if we have valid cells
   if (!features.empty()) {
+    std::cout << "\n\033[1;36m[DEBUG] Valid cells: " << features.size() << " | Sample Feature [0]: " << features[0].transpose() << "\033[0m" << std::endl;
+
     std::vector<float> predictions = network_.inference(features);
+
+    std::cout << "\033[1;35m[DEBUG] Sample Logit [0]: " << predictions[0] << " | Sigmoid Probability: " << sigmoid(predictions[0]) << "\033[0m\n" << std::endl;
 
     // Update map with predictions
     for (size_t i = 0; i < valid_indices.size(); ++i) {
@@ -141,7 +153,6 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
     }
   }
 }
-
 void TraversabilityEstimator::ensureTraversabilityLayers(HeightMap &map) {
 
   map.addLayer(layers::Traversability::PROBABILITY);
