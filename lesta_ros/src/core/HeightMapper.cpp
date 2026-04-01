@@ -96,6 +96,12 @@ typename boost::shared_ptr<pcl::PointCloud<PointT>> HeightMapper::heightMapping(
   // 3.计算并写入强度特征(Intensity Mean & Variance)
   // 使用 if constexpr 在编译期安全检查当前 PointT 是否含有intensity 字段
   if constexpr (pcl::traits::has_field<PointT, pcl::fields::intensity>::value) {
+      // 成功分支：编译期判定 PointT 包含 intensity
+      static bool print_once_success = false;
+      if (!print_once_success) {
+          std::cout << "\n\033[1;32m[DEBUG-LeSTA] SUCCESS! PointT has 'intensity' field. Intensity feature block is COMPILED and EXECUTING.\033[0m\n" << std::endl;
+          print_once_success = true;
+      }     
       std::unordered_map<std::pair<int, int>, std::vector<float>, pair_hash> intensity_grid;
       grid_map::Position measuredPosition;
       grid_map::Index measuredIndex;
@@ -135,6 +141,13 @@ typename boost::shared_ptr<pcl::PointCloud<PointT>> HeightMapper::heightMapping(
           // 写入 HeightMap (底层通过重载或直接调用封装的 grid_map::GridMap)
           map_.at(layers::Feature::INTENSITY_MEAN, gridIndex) = mean;
           map_.at(layers::Feature::INTENSITY_VAR, gridIndex) = var;
+      }
+  } else {
+    // 失败分支：编译期判定 PointT 不包含 intensity，原本的代码会被直接丢弃
+      static bool print_once_fail = false;
+      if (!print_once_fail) {
+          std::cout << "\n\033[1;31m[DEBUG-LeSTA] FATAL WARNING! PointT does NOT have 'intensity' field. Intensity feature block is SKIPPED during compilation!\033[0m\n" << std::endl;
+          print_once_fail = true;
       }
   }
   // ===============================================================

@@ -75,18 +75,13 @@ class MLPClassifier(nn.Module):
                     nn.init.zeros_(m.bias)
 
     def forward(self, x):
+        # 对原始特征进行mask
+        if self.training:
+            mask = torch.ones_like(x)
+            if torch.rand(1).item() < 0.5:
+                mask[:,5:7] = 0.0
+                x = x * mask
         if self.feature_normalizer is not None:
             x = self.feature_normalizer(x)
         
-        # ============ [核心修复代码] ==============
-        # intensity_mean 和 intensity_var 在第 6 和第 7 维
-        if self.training:
-            # 生成一个与 batch 相同大小的 mask
-            mask = torch.ones_like(x)
-            # 有 50% 的概率，强行切断网络对 LiDAR 强度的依赖
-            if torch.rand(1).item() < 0.5:
-                mask[:, 5:7] = 0.0
-            # 应用掩码
-            x = x * mask
-        # ========================================
         return self.network(x)
