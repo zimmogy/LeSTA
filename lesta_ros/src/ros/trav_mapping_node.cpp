@@ -231,6 +231,11 @@ void TravMappingNode::publishTravMap(const HeightMap &heightmap,
                                      lesta::layers::Feature::SLOPE,
                                      lesta::layers::Feature::ROUGHNESS,
                                      lesta::layers::Feature::CURVATURE,
+                                     // ================= [新增修复：发布新增的特征层] =================
+                                    lesta::layers::Feature::INTENSITY_MEAN,
+                                    lesta::layers::Feature::INTENSITY_VAR,
+                                    lesta::layers::Feature::SPARSITY,
+                                    // ==============================================================
                                      lesta::layers::Traversability::PROBABILITY,
                                      lesta::layers::Traversability::BINARY,
                                      lesta::layers::Traversability::LOG_ODDS,

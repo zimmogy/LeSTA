@@ -242,8 +242,15 @@ void TravPredictionNode::publishTravMap(const HeightMap &map) {
   layers.push_back(lesta::layers::Feature::NORMAL_X);
   layers.push_back(lesta::layers::Feature::NORMAL_Y);
   layers.push_back(lesta::layers::Feature::NORMAL_Z);
+// ================= [新增修复：发布新增的特征层] =================
+  layers.push_back(lesta::layers::Feature::INTENSITY_MEAN);
+  layers.push_back(lesta::layers::Feature::INTENSITY_VAR);
+  layers.push_back(lesta::layers::Feature::SPARSITY);
+  // ==============================================================
   layers.push_back(lesta::layers::Traversability::BINARY);
   layers.push_back(lesta::layers::Traversability::PROBABILITY);
+
+
 
   grid_map_msgs::GridMap msg;
   grid_map::GridMapRosConverter::toMessage(map, layers, msg);
