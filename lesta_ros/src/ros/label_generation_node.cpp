@@ -223,7 +223,7 @@ void LabelGenerationNode::publishLabelMap(const ros::TimerEvent &event) {
                                      lesta::layers::Feature::SLOPE,
                                      lesta::layers::Feature::ROUGHNESS,
                                      lesta::layers::Feature::CURVATURE,
-                                     height_mapping::layers::Height::ELEVATION_VARIANCE,
+                                     lesta::layers::Feature::ELEVATION_VARIANCE,
                                      lesta::layers::Label::FOOTPRINT,
                                      lesta::layers::Label::TRAVERSABILITY,
                                      // 新增的可视化层
