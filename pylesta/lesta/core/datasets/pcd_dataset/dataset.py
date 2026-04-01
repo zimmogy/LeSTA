@@ -25,8 +25,6 @@ class PCDDataset(PCDDatasetBase):
         """Get item at index. Returns pytorch tensors"""
 
         features, label = self.feature_vectors[idx], self.labels[idx]
-        if not self.skip_normalization:
-            features = self._normalize_features(features)
 
         # Convert to pytorch tensors
         features = torch.from_numpy(features).float()
@@ -67,9 +65,6 @@ class PCDDataset(PCDDatasetBase):
             self.feature_vectors[:, mean_idx] = np.clip(self.feature_vectors[:, mean_idx], a_min=0.0, a_max=mean_p99)
             self.feature_vectors[:, var_idx] = np.clip(self.feature_vectors[:, var_idx], a_min=0.0, a_max=var_p99)
             
-            # (可选) 稍微放大一下尺度，防止数值在 float32 下下溢出
-            self.feature_vectors[:, mean_idx] *= 100.0
-            self.feature_vectors[:, var_idx] *= 1000.0
             
             print(f"\n[Dataset] 已对 Intensity 特征进行 99% 截断保护！")
             print(f"[Dataset] Mean 截断上限: {mean_p99:.6f}, Var 截断上限: {var_p99:.6f}\n")

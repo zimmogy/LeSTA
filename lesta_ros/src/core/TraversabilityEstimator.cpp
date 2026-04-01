@@ -117,9 +117,9 @@ void TraversabilityEstimator::estimateTraversabilityImpl(
 
       // ================= [部署端对齐代码] =================
       if (field_name == "intensity_mean") {
-          raw_value = std::min(raw_value, 1.0f) * 100.0f;      
+          raw_value = std::min(raw_value, 1.0f);      
       } else if (field_name == "intensity_var") {
-          raw_value = std::min(raw_value, 0.008476f) * 1000.0f; 
+          raw_value = std::min(raw_value, 0.008476f); 
       }
       // ====================================================
 
