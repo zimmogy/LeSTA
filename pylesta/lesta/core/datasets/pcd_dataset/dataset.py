@@ -23,10 +23,10 @@ class PCDDataset(PCDDatasetBase):
 
     def __getitem__(self, idx):
         """Get item at index. Returns pytorch tensors"""
-
-        features, label = self.feature_vectors[idx], self.labels[idx]
-        if not self.skip_normalization:
-            features = self._normalize_features(features)
+        # 注销dataset级别的归一化，仅让normalizationlayer进行归一化处理
+        # features, label = self.feature_vectors[idx], self.labels[idx]
+        # if not self.skip_normalization:
+        #     features = self._normalize_features(features)
 
         # Convert to pytorch tensors
         features = torch.from_numpy(features).float()
