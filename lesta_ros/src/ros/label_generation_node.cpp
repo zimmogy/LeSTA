@@ -357,7 +357,7 @@ bool LabelGenerationNode::saveLabelMap(lesta::save_training_data::Request &req,
     point.roughness = height_map.at(lesta::layers::Feature::ROUGHNESS, index);
     point.curvature = height_map.at(lesta::layers::Feature::CURVATURE, index);
     point.variance =
-        height_map.at(height_mapping::layers::Height::ELEVATION_VARIANCE, index);
+        height_map.at(lesta::layers::Feature::VARIANCE, index);
     point.intensity_mean = 
         height_map.isValid(index, lesta::layers::Feature::INTENSITY_MEAN) ? 
         height_map.at(lesta::layers::Feature::INTENSITY_MEAN, index) : 0.0f;
