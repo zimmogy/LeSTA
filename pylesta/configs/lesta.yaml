@@ -61,6 +61,6 @@ OPTIMIZER:
   learning_rate: 0.0005 # 0.001
   Adam_beta1: 0.9
   Adam_beta2: 0.999
-  weiht_decay: 0.01
+  weight_decay: 0.01
   scheduler: "exponential" # ["none", "step", "exponential", "plateau"]
   scheduler_gamma: 0.98 # 0.1 for step, plateau
