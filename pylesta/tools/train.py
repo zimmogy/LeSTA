@@ -52,6 +52,12 @@ def main(args):
     print('=> Initializing trainer...')
     print('=> Using device:', device)
     criterion = LossFactory(cfg=LOSS_CFG)
+    # ======== [新增：激活正样本偏袒权重] ========
+    if LOSS_CFG['type'] == 'bce_loss':
+        pos_weight = train_dataset.get_pos_weight()
+        criterion.set_pos_weight(pos_weight.to(device))
+        print(f'=> Applied Positive Weight (pos_weight): {pos_weight.item():.4f}')
+    # ==========================================
     optim = TrainingOptimizer(model=net, cfg=OPTIMIZER_CFG)
 
     # Create and run trainer
