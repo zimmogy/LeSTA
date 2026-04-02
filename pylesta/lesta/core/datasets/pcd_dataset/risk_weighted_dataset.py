@@ -10,8 +10,10 @@ class RiskWeightedPCDDataset(PCDDataset):
     def __init__(self, file_path, cfg):
         super().__init__(file_path, cfg)
 
-        # Member variables
-        self.feature_weights = np.array(list(cfg['feature_weights'].values()))
+        # [核心修复]：动态匹配特征权重。
+        # 遍历当前真实提取到的特征列表 (self.feature_fields)，从配置中安全获取对应权重，若未配置则默认给 1.0
+        weight_dict = cfg.get('feature_weights', {})
+        self.feature_weights = np.array([weight_dict.get(feat, 1.0) for feat in self.feature_fields])
         self.intrinsic_risks = None
         self.cumulative_risks = None
         self.risk_weights = None
