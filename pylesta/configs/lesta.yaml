@@ -8,9 +8,9 @@ DATASET:
     - roughness
     - curvature
     # - variance
-    - intensity_mean
+    # - intensity_mean
     # - intensity_var
-    # - sparsity
+    - sparsity
   feature_weights:
     step: 1.0
     slope: 1.0
@@ -26,7 +26,7 @@ DATASET:
 MODEL:
   type: "MLP"
   input_dim: 5
-  hidden_dims: [32, 16]
+  hidden_dims: [12, 6]
   output_dim: 1
   dropout_rate: 0.2 # 0.2
   use_normalization_layer: *use_normalization_layer
@@ -53,14 +53,13 @@ TRAINER:
   namespace: "LeSTA"
 
 LOSS:
-  type: "bce_loss" # ["risk_sensitive_loss", "instance_weighted_loss", "bce_loss"]
+  type: "risk_sensitive_loss" # ["risk_sensitive_loss", "instance_weighted_loss", "bce_loss"]
   entropy_coefficient: 0.1
 
 OPTIMIZER:
   type: "Adam"
-  learning_rate: 0.0005 # 0.001
+  learning_rate: 0.001 # 0.001
   Adam_beta1: 0.9
   Adam_beta2: 0.999
-  weight_decay: 0.01
   scheduler: "exponential" # ["none", "step", "exponential", "plateau"]
   scheduler_gamma: 0.98 # 0.1 for step, plateau
