@@ -69,8 +69,9 @@ def evaluate_model(config_path, model_ckpt_path, val_pcd_path):
             all_preds.append(preds_prob.cpu().numpy())
             all_targets.append(labels.cpu().numpy())
 
-    preds_np = np.vstack(all_preds).squeeze()
-    targets_np = np.vstack(all_targets).squeeze()
+    # 拼接所有的 batch
+    preds_np = np.concatenate(all_preds, axis=0).squeeze()
+    targets_np = np.concatenate(all_targets, axis=0).squeeze()
 
     # ==========================================
     # 4. 数据清洗：核心的物理掩码 (Masking)
