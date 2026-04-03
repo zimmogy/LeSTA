@@ -32,6 +32,8 @@ class MLPClassifier(nn.Module):
                  cfg=None):
         super(MLPClassifier, self).__init__()
 
+        feature_means = None
+        feature_stds = None
         if cfg is not None:
             input_dim = cfg['input_dim']
             hidden_dims = cfg['hidden_dims']

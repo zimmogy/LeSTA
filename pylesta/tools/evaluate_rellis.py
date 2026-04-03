@@ -23,7 +23,7 @@ def evaluate_model(config_path, model_ckpt_path, val_pcd_path):
     cfg = yaml.load(config_path)
     
     # 实例化你修改过输入维度（例如 8 通道）的模型
-    model = MLPClassifier(cfg['model'])
+    model = MLPClassifier(cfg=cfg['model'])
     
     # 加载训练好的权重
     checkpoint = torch.load(model_ckpt_path, map_location=device)
