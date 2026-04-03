@@ -18,17 +18,25 @@ def evaluate_model(config_path, model_ckpt_path, val_pcd_path):
     # ==========================================
     # 1. 加载配置与模型
     # ==========================================
+
     cfg = yaml.load(config_path)
     
-    # 【修复点】：修改为大写的 'MODEL' 以匹配 yaml 文件
-    model = MLPClassifier(cfg=cfg['MODEL'])
-    
-    # 加载训练好的权重
-    checkpoint = torch.load(model_ckpt_path, map_location=device)
-    if 'model_state_dict' in checkpoint:
-        model.load_state_dict(checkpoint['model_state_dict'])
-    else:
-        model.load_state_dict(checkpoint)
+    print(f"📦 正在加载模型权重: {model_ckpt_path}")
+    try:
+        # 针对 yaml 中 save_for_libtorch: true 生成的 TorchScript 模型
+        model = torch.jit.load(model_ckpt_path, map_location=device)
+        print("✅ 成功作为 TorchScript (JIT) 模型加载！")
+    except RuntimeError:
+        # 向下兼容：如果未来你关闭了 save_for_libtorch，使用传统 state_dict 加载
+        print("⚠️ 检测到非 TorchScript 格式，尝试作为传统 state_dict 加载...")
+        model = MLPClassifier(cfg['MODEL'])
+        # 增加 weights_only=True 消除安全警告
+        checkpoint = torch.load(model_ckpt_path, map_location=device, weights_only=True)
+        if 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            model.load_state_dict(checkpoint)
+        print("✅ 成功作为 State Dict 加载！")
         
     model.to(device)
     model.eval()
