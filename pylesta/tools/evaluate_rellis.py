@@ -49,7 +49,7 @@ def evaluate_model(config_path, model_ckpt_path, val_pcd_path):
     val_cfg['training_data'] = val_pcd_path 
     
     print(f"📦 正在加载验证集 PCD: {val_pcd_path}")
-    val_dataset = PCDDataset(val_cfg)
+    val_dataset = PCDDataset(val_pcd_path, val_cfg)
     val_loader = DataLoader(val_dataset, batch_size=2048, shuffle=False, num_workers=4)
 
     # ==========================================
