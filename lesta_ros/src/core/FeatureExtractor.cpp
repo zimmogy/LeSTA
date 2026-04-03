@@ -105,14 +105,80 @@ void FeatureExtractor::extractFeatures(
         std::abs(eigenvalues(0) / covariance.trace());
     // 补充：几何方差（Z轴高度方差）
     map.at(layers::Feature::VARIANCE, index) = covariance(2, 2);
-    // 新增 1：计算局部致密度 (Density) 代替稀疏度，解决长尾分布导致的 Logit 爆炸问题
+
+    // ==================================================================
+    // 新增 ：引入 PUTN 的协方差迹稀疏度评估，解决长尾分布导致的 Logit 爆炸问题
+    // ==================================================================
     // 设定邻域内有效点数的上限（例如 100 个点），将局部点数线性映射到 0.0 ~ 1.0 的安全区间
-    const float MAX_POINTS_IN_RADIUS = 100.0f;
-    float point_count = static_cast<float>(neighbors.size());
-    float density = std::min(point_count, MAX_POINTS_IN_RADIUS) / MAX_POINTS_IN_RADIUS;
+    // 1. 定义局部栅格参数 (建议将 resolution 等参数移至 yaml 配置中)
+    const float GRID_RES = static_cast<float>(cfg.grid_res); // 局部栅格分辨率 0.1m
+    int fit_num = static_cast<int>(cfg.pca_radius / GRID_RES);
+    int grid_size = 2 * fit_num + 1;
     
-    // 注意：图层名仍保持 SPARSITY 以兼容现有的网络配置文件，但其物理意义已变为稳定的 Density
-    map.at(layers::Feature::SPARSITY, index) = density;
+    // 2. 初始化局部空缺矩阵 (false 表示 vacant 空缺)
+    Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> vac(grid_size, grid_size);
+    vac.setConstant(false);
+    int vac_count = grid_size * grid_size;
+
+    // 3. 将邻域点云投影到局部 2D 栅格中，消除被覆盖的空缺
+    for (const auto &neighbor : neighbors) {
+      // 相对于局部点云均值的 XY 像素坐标
+      int u = std::round((neighbor(0) - mean_neighbors(0)) / GRID_RES) + fit_num;
+      int v = std::round((neighbor(1) - mean_neighbors(1)) / GRID_RES) + fit_num;
+      
+      if (u >= 0 && u < grid_size && v >= 0 && v < grid_size) {
+        if (!vac(u, v)) {
+          vac(u, v) = true; // 标记为被点云击中（占用）
+          vac_count--;      // 空缺数量减少
+        }
+      }
+    }
+
+    float sparsity = 0.0f;
+    if (vac_count > 0) {
+      // 4. 提取所有空缺网格的 2D 坐标
+      Eigen::MatrixXd M_vac(2, vac_count);
+      int col_idx = 0;
+      for (int i = 0; i < grid_size; i++) {
+        for (int j = 0; j < grid_size; j++) {
+          if (!vac(i, j)) {
+            M_vac(0, col_idx) = static_cast<double>(i);
+            M_vac(1, col_idx) = static_cast<double>(j);
+            col_idx++;
+          }
+        }
+      }
+
+      // 5. 计算空缺分布的协方差矩阵的迹 (Trace)
+      Eigen::Vector2d mean_vac = M_vac.rowwise().mean();
+      Eigen::MatrixXd centered_M_vac = M_vac.colwise() - mean_vac;
+      // 除以空缺总数求协方差
+      Eigen::Matrix2d cov_vac = (centered_M_vac * centered_M_vac.transpose()) / static_cast<double>(vac_count);
+      
+      float trace = static_cast<float>(cov_vac.trace());
+      float ratio = static_cast<float>(vac_count) / (grid_size * grid_size);
+
+      // 6. PUTN 稀疏度判定超参数 (推荐从 cfg 中读取，此处使用原论文默认值)
+      const float RATIO_MAX = 0.40f;   // 极度空缺阈值
+      const float RATIO_MIN = 0.25f;   // 空缺容忍底线
+      const float CONV_THRE = 0.0014f; // 集中度阈值 (1/Trace)，评估是否为集中大坑
+
+      // 7. 评估并赋值
+      if (ratio > RATIO_MAX) {
+        sparsity = 1.0f; // 绝对稀疏（如悬崖边缘、大面积盲区）
+      } else if (ratio > RATIO_MIN && ratio <= RATIO_MAX && (1.0f / (trace + 1e-6f)) > CONV_THRE) {
+        // 空洞分布集中，按比例计算稀疏度危险值
+        sparsity = (ratio - RATIO_MIN) / (RATIO_MAX - RATIO_MIN);
+      } else {
+        // 零碎空洞（如草丛散射）或比例极低，视为安全
+        sparsity = 0.0f; 
+      }
+    }
+    
+    // 图层名仍保持 SPARSITY 以兼容 Python 端网络配置
+    map.at(layers::Feature::SPARSITY, index) = sparsity;
+
+    // =========================================================
     map.at(layers::Feature::NORMAL_X, index) = normal_vector(0);
     map.at(layers::Feature::NORMAL_Y, index) = normal_vector(1);
     map.at(layers::Feature::NORMAL_Z, index) = normal_vector(2);
