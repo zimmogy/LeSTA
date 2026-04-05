@@ -65,8 +65,14 @@ class UncertaintyAwareBCELoss(Module):
         # 动态计算每个样本的权重
         instance_weights = self.compute_certainty_weights(targets, variance, intensity_var, sparsity)
         
+        # ======== [新增：标签平滑 (Label Smoothing)] ========
+        # 0.0 变成 0.05, 1.0 变成 0.95
+        # 这能彻底防止网络输出无穷大的 Logit，从而极大地压低那 85.2% 的伪标签率
+        smoothed_targets = targets.float() * 0.90 + 0.05
+        # ====================================================
+
         # 计算基础 BCE Loss
-        loss = self.criterion(logits, targets.float())
+        loss = self.criterion(logits, smoothed_targets)
 
         # 广播机制以对齐维度
         if instance_weights.dim() == 1 and loss.dim() > 1:
