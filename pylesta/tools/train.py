@@ -1,5 +1,6 @@
 import argparse
 
+import torch
 from utils.param import yaml
 from utils.pytorch import seed, machine
 from utils.pytorch.optimizer import TrainingOptimizer
