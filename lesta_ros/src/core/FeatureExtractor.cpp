@@ -109,7 +109,6 @@ void FeatureExtractor::extractFeatures(
     // ==================================================================
     // 新增 ：引入 PUTN 的协方差迹稀疏度评估，解决长尾分布导致的 Logit 爆炸问题
     // ==================================================================
-    // 设定邻域内有效点数的上限（例如 100 个点），将局部点数线性映射到 0.0 ~ 1.0 的安全区间
     // 1. 定义局部栅格参数 (建议将 resolution 等参数移至 yaml 配置中)
     const float GRID_RES = static_cast<float>(cfg.grid_res); // 局部栅格分辨率 0.1m
     int fit_num = static_cast<int>(cfg.pca_radius / GRID_RES);
