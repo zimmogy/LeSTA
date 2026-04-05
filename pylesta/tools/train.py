@@ -54,9 +54,12 @@ def main(args):
     criterion = LossFactory(cfg=LOSS_CFG)
     # ======== [新增：激活正样本偏袒权重] ========
     if LOSS_CFG['type'] in ['bce_loss', 'uncertainty_aware_loss', 'instance_weighted_loss']:
-        pos_weight = train_dataset.get_pos_weight()
+        # 获取原始 pos_weight，并强制钳制在最大 2.0！
+        raw_pos_weight = train_dataset.get_pos_weight()
+        pos_weight = torch.clamp(raw_pos_weight, max=3.0) 
+        
         criterion.set_pos_weight(pos_weight.to(device))
-        print(f'=> Applied Positive Weight (pos_weight): {pos_weight.item():.4f}')
+        print(f'=> Applied Positive Weight (pos_weight): {pos_weight.item():.4f} (Raw was {raw_pos_weight.item():.4f})')
     # ==========================================
     optim = TrainingOptimizer(model=net, cfg=OPTIMIZER_CFG)
 
