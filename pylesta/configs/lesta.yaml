@@ -7,9 +7,9 @@ DATASET:
     - slope
     - roughness
     - curvature
-    # - variance
-    # - intensity_mean
-    # - intensity_var
+    - variance
+    - intensity_mean
+    - intensity_var
     - sparsity
   feature_weights:
     step: 1.0
@@ -25,8 +25,8 @@ DATASET:
 
 MODEL:
   type: "MLP"
-  input_dim: 5
-  hidden_dims: [12, 6]
+  input_dim: 8
+  hidden_dims: [32, 16]
   output_dim: 1
   dropout_rate: 0.2 # 0.2
   use_normalization_layer: *use_normalization_layer

@@ -11,7 +11,7 @@ from lesta.api.checkpoint import LestaSaver
 
 
 class LestaTrainer:
-    def __init__(self, network, datasets, criterion, optimizer, scheduler, device, cfg):
+    def __init__(self, network, datasets, criterion, optimizer, scheduler, device, cfg, loss_type='bce_loss'):
 
         # Setup model and datasets
         self.network = network.to(device)
@@ -28,6 +28,10 @@ class LestaTrainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = device
+        self.loss_type = loss_type # [新增] 保存 loss_type
+
+        # [新增] 获取特征维度的名称列表，用于动态寻找索引
+        self.feature_fields = datasets['train'].cfg['feature_fields']
 
         # Load logging and checkpointing
         self.cfg = cfg
@@ -148,8 +152,22 @@ class LestaTrainer:
 
             # Forward pass
             outputs = self.network(inputs).squeeze()
-            loss = self.criterion(outputs, labels, risk_weights)
-            # loss = self.criterion(outputs, labels)
+            # ======== [修改：根据 loss_type 执行不同的 Loss 计算] ========
+            if self.loss_type == 'uncertainty_aware_loss':
+                # 动态获取特征所在列的索引
+                var_idx = self.feature_fields.index('variance')
+                int_var_idx = self.feature_fields.index('intensity_var')
+                spa_idx = self.feature_fields.index('sparsity')
+                
+                # 切片提取特征列
+                variance = inputs[:, var_idx]
+                intensity_var = inputs[:, int_var_idx]
+                sparsity = inputs[:, spa_idx]
+                
+                loss = self.criterion(outputs, labels, variance, intensity_var, sparsity)
+            else:
+                loss = self.criterion(outputs, labels, risk_weights)
+            # ==========================================================
 
             # Backward pass and optim
             self.optimizer.zero_grad()
@@ -198,7 +216,20 @@ class LestaTrainer:
                     outputs = self.network(inputs[valid_mask]).squeeze()
                     # 防止输出变成标量导致 BCE 报错
                     if outputs.dim() == 0: outputs = outputs.unsqueeze(0)
-                    loss = self.criterion(outputs, labels[valid_mask])
+                    # ======== [修改：验证集同样需要分支处理] ========
+                    if self.loss_type == 'uncertainty_aware_loss':
+                        var_idx = self.feature_fields.index('variance')
+                        int_var_idx = self.feature_fields.index('intensity_var')
+                        spa_idx = self.feature_fields.index('sparsity')
+                        
+                        variance = inputs[valid_mask, var_idx]
+                        intensity_var = inputs[valid_mask, int_var_idx]
+                        sparsity = inputs[valid_mask, spa_idx]
+                        
+                        loss = self.criterion(outputs, labels[valid_mask], variance, intensity_var, sparsity)
+                    else:
+                        loss = self.criterion(outputs, labels[valid_mask])
+                    # =================================================
                     self.val_batch_losses.append(loss.item())
 
         # Calculate and record epoch validation loss
