@@ -55,6 +55,9 @@ void TravPredictionNode::loadConfig(const ros::NodeHandle &nh) {
   cfg_.map_pub_rate = nh.param<double>("map_publish_rate", 10.0);
   cfg_.remove_backpoints = nh.param<bool>("remove_backpoints", true);
   cfg_.debug_mode = nh.param<bool>("debug_mode", false);
+
+  // 新增：从参数服务器读取 self_filter_radius, 默认值设为 0.4
+  cfg_.self_filter_radius = nh.param<double>("self_filter_radius", 0.4);
 }
 
 void TravPredictionNode::initializePubSubs() {
@@ -143,6 +146,26 @@ TravPredictionNode::preprocessScan(const pcl::PointCloud<Laser>::Ptr &scan_raw,
   // 1. Transform pointcloud to base frame
   auto scan_base = PointCloudOps::applyTransform<Laser>(scan_raw, sensor2base);
 
+  // ================ [新增:过滤机器人本体点云] ================
+  auto scan_no_self = boost::make_shared<pcl::PointCloud<Laser>>();
+  scan_no_self->header = scan_base->header;
+  
+  // 提前分配内存，提高效率
+  scan_no_self->points.reserve(scan_base->points.size());
+
+  // 预先计算半径平方，避免循环内进行耗时的 sqrt 计算
+  double radius_sq = cfg_.self_filter_radius * cfg_.self_filter_radius;
+
+  for (const auto& point : scan_base->points) {
+    // 仅计算 xy 平面上的距离（通常机器人遮挡都在本体上方或同一水平面）
+    double dist_sq = point.x * point.x + point.y * point.y;
+    if (dist_sq > radius_sq) {
+      scan_no_self->points.push_back(point);
+    }
+  }
+  // 将过滤后的结果赋值回 scan_base 以供后续降采样
+  scan_base = scan_no_self;
+  // ============================================================
   // 2. Publish downsampled scan
   auto scan_downsampled = PointCloudOps::downsampleVoxel<Laser>(scan_base, 0.4);
   publishDownsampledScan(scan_downsampled);

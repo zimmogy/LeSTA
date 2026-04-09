@@ -4,6 +4,7 @@ node:
   pose_update_rate: 10.0             # [Hz]
   remove_backpoints: true            # [bool], Remove remoter points
   debug_mode: false
+  self_filter_radius: 0.4 # 新增：过滤机器人本体半径（单位：米）
 
 frame_id:
   robot_frame: "base_link"

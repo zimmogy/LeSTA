@@ -24,6 +24,7 @@ public:
     double map_pub_rate;
     bool remove_backpoints;
     bool debug_mode;
+    double self_filter_radius; // 新增本体过滤半径
   } cfg_;
 
   TravPredictionNode();
