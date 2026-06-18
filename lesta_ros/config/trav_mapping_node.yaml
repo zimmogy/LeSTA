@@ -3,7 +3,7 @@ node:
   map_publish_rate: 1.0        # [Hz], For visualization
   scan_filter_range: 6.0       # [meter], Distant points are noisy and not useful for mapping
   visualize_3d_scan: true      # [bool], Visualize the 3D scan mapping in rviz
-  remove_backpoints: true      # [bool], Remove remoter points
+  remove_backpoints: false      # [bool], Remove remoter points
   debug_mode: false
 
 frame_id:
@@ -16,7 +16,7 @@ height_mapper:
   map_length_x: 600.0          # [meter]
   map_length_y: 400.0          # [meter], Adjust these values based on the mapping areas
   grid_resolution: 0.1         # [meter]
-  min_height_threshold: -0.5   # [meter]
+  min_height_threshold: -2.5   # [meter]
   max_height_threshold: 1.5    # [meter]
 
 traversability_mapper:

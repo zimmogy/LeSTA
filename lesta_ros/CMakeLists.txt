@@ -75,10 +75,11 @@ add_executable(label_generation_node
 target_link_libraries(label_generation_node
   ${PCL_LIBRARIES}
   ${catkin_LIBRARIES}
+  height_mapping_core
   ${OpenCV_LIBRARIES}
 )
 # Node: add dependencies to service messages header files
-add_dependencies(label_generation_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(label_generation_node height_mapping_core ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # Node: Traversability prediction
 add_executable(trav_prediction_node
@@ -91,11 +92,12 @@ add_executable(trav_prediction_node
 target_link_libraries(trav_prediction_node
   ${PCL_LIBRARIES}
   ${catkin_LIBRARIES}
+  height_mapping_core
   ${TORCH_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
 # Node: add message dependencies
-add_dependencies(trav_prediction_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(trav_prediction_node height_mapping_core ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # Node: Traversability mapping
 add_executable(trav_mapping_node
@@ -110,7 +112,8 @@ add_executable(trav_mapping_node
 target_link_libraries(trav_mapping_node
   ${PCL_LIBRARIES}
   ${catkin_LIBRARIES}
+  height_mapping_core
   ${TORCH_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
-add_dependencies(trav_prediction_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(trav_mapping_node height_mapping_core ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

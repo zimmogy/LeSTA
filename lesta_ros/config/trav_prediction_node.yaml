@@ -2,7 +2,7 @@ node:
   lidarscan_topic: "/os1_cloud_node/points"
   map_publish_rate: 10.0             # [Hz]
   pose_update_rate: 10.0             # [Hz]
-  remove_backpoints: true            # [bool], Remove remoter points
+  remove_backpoints: false            # [bool], Remove remoter points
   debug_mode: false
 
 frame_id:
@@ -15,7 +15,7 @@ height_mapper:
   map_length_x: 10.0                 # [meter]
   map_length_y: 10.0                 # [meter]
   grid_resolution: 0.1               # [meter]
-  min_height_threshold: -0.5         # [meter]
+  min_height_threshold: -5.5         # [meter]
   max_height_threshold: 1.5          # [meter]
 
 traversability_network:
